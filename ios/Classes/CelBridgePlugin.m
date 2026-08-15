@@ -70,7 +70,7 @@ static BOOL CelBridgeHasNUL(NSString *value) {
     value = cel_bridge_evaluate(
         [environment UTF8String], [source UTF8String], [variables UTF8String]);
   } else {
-    result([FlutterMethodNotImplemented]);
+    result(FlutterMethodNotImplemented);
     return;
   }
   NSString *json = CelBridgeJSON(value);
