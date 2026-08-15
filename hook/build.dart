@@ -28,7 +28,7 @@ Future<void> main(List<String> args) async {
       await _buildFromSource(input, target, assetPath, libraryName);
       output.dependencies.add(input.packageRoot);
     } else {
-      await _downloadArtifact(input, target, libraryName, assetPath);
+      await _downloadArtifact(input, output, target, libraryName, assetPath);
     }
 
     output.assets.code.add(
@@ -89,6 +89,7 @@ String _libraryName(OS os, bool staticLinking) {
 
 Future<void> _downloadArtifact(
   BuildInput input,
+  BuildOutputBuilder output,
   _Target target,
   String libraryName,
   Uri assetPath,
@@ -96,6 +97,18 @@ Future<void> _downloadArtifact(
   final manifestUri = Uri.parse(
     '$_releaseBase/cel-bridge-manifest-v$_runtimeVersion.json',
   );
+  final localDirectory = input.userDefines.path('artifact_directory');
+  if (localDirectory != null) {
+    output.dependencies.add(localDirectory);
+    final localFile = File.fromUri(
+      Directory.fromUri(localDirectory).uri.resolve(libraryName),
+    );
+    if (!localFile.existsSync()) {
+      throw StateError('local artifact directory has no $libraryName');
+    }
+    await localFile.copy(assetPath.toFilePath());
+    return;
+  }
   final manifest = await _getJson(manifestUri);
   if (manifest['manifestVersion'] != 1 ||
       manifest['runtimeVersion'] != _runtimeVersion ||
