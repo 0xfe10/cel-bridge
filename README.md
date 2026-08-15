@@ -168,8 +168,14 @@ cd example/flutter_app
 flutter pub get
 flutter build web --debug \
   --dart-define=CEL_BRIDGE_WASM_URL=/cel_bridge.wasm \
-  --dart-define=CEL_BRIDGE_WASM_EXEC_URL=/wasm_exec.js
+  --dart-define=CEL_BRIDGE_WASM_EXEC_URL=/wasm_exec.js \
+  --dart-define=CEL_BRIDGE_WASM_INTEGRITY=sha256-<wasm-digest> \
+  --dart-define=CEL_BRIDGE_WASM_EXEC_INTEGRITY=sha256-<exec-digest>
 ```
+
+The integrity values must match the self-hosted files in standard SRI
+`sha256-...` form. For a trusted local fixture only, omit these defines to
+disable SRI for the custom URLs.
 
 For another host, pass URLs directly:
 
@@ -178,6 +184,8 @@ final runtime = await CelRuntime.initialize(
   options: const CelRuntimeOptions(
     wasmUrl: 'https://static.example.test/cel_bridge.wasm',
     wasmExecUrl: 'https://static.example.test/wasm_exec.js',
+    wasmIntegrity: 'sha256-<wasm-digest>',
+    wasmExecIntegrity: 'sha256-<exec-digest>',
   ),
 );
 ```

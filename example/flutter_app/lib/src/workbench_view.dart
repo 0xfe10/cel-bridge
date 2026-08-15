@@ -22,6 +22,10 @@ const _defaultVariables = '''{
 const _defaultSource = 'age >= 18 && country in ["CN", "SG"]';
 const _wasmUrl = String.fromEnvironment('CEL_BRIDGE_WASM_URL');
 const _wasmExecUrl = String.fromEnvironment('CEL_BRIDGE_WASM_EXEC_URL');
+const _wasmIntegrity = String.fromEnvironment('CEL_BRIDGE_WASM_INTEGRITY');
+const _wasmExecIntegrity = String.fromEnvironment(
+  'CEL_BRIDGE_WASM_EXEC_INTEGRITY',
+);
 
 final class CelBridgeExampleApp extends StatelessWidget {
   const CelBridgeExampleApp({super.key});
@@ -98,7 +102,14 @@ final class _WorkbenchState extends State<_Workbench> {
     _runtime = CelRuntime.initialize(
       options: _wasmUrl.isEmpty
           ? const CelRuntimeOptions()
-          : CelRuntimeOptions(wasmUrl: _wasmUrl, wasmExecUrl: _wasmExecUrl),
+          : CelRuntimeOptions(
+              wasmUrl: _wasmUrl,
+              wasmExecUrl: _wasmExecUrl,
+              wasmIntegrity: _wasmIntegrity.isEmpty ? null : _wasmIntegrity,
+              wasmExecIntegrity: _wasmExecIntegrity.isEmpty
+                  ? null
+                  : _wasmExecIntegrity,
+            ),
     );
     _source = TextEditingController(text: _defaultSource);
     _environment = TextEditingController(text: _defaultEnvironment);
