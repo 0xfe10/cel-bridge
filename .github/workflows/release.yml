@@ -159,11 +159,16 @@ jobs:
               --target "${{ matrix.target }}" --output build/artifacts
             CC="$(xcrun --sdk iphonesimulator --find clang)" \
               dart run tool/build_artifact.dart \
-              --target ios-x86_64 --output build/artifacts
+              --target ios-arm64-simulator --output build/artifacts
+            CC="$(xcrun --sdk iphonesimulator --find clang)" \
+              dart run tool/build_artifact.dart \
+              --target ios-x86_64-simulator --output build/artifacts
             xcodebuild -create-xcframework \
               -library build/artifacts/ios-arm64/libcel_bridge.a \
               -headers include \
-              -library build/artifacts/ios-x86_64/libcel_bridge.a \
+              -library build/artifacts/ios-arm64-simulator/libcel_bridge.a \
+              -headers include \
+              -library build/artifacts/ios-x86_64-simulator/libcel_bridge.a \
               -headers include \
               -output build/artifacts/libcel_bridge.xcframework
             ditto -c -k --sequesterRsrc --keepParent \
@@ -286,11 +291,51 @@ jobs:
             --dir build/release-download
 
       - name: Verify downloaded release assets
+        shell: bash
         run: |
+          set -euo pipefail
           dart run tool/verify_artifact.dart \
             --manifest build/release-download/cel-bridge-manifest-v$(cat VERSION).json \
             --input build/release-download
           (cd build/release-download && sha256sum -c checksums.txt)
+          while IFS= read -r -d '' archive; do
+            case "$archive" in
+              *.tar.gz) tar -tzf "$archive" >/dev/null ;;
+              *.zip) unzip -tqq "$archive" >/dev/null ;;
+            esac
+          done < <(find build/release-download -maxdepth 1 -type f \
+            \( -name '*.tar.gz' -o -name '*.zip' \) -print0)
+
+      - name: Run downloaded Web release smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/release-web-host/normal build/release-web-host/retry
+          dart compile js tool/web_smoke.dart \
+            -o build/release-web-host/normal/main.dart.js
+          dart compile js tool/web_retry_smoke.dart \
+            -o build/release-web-host/retry/main.dart.js
+          cp tool/web_smoke.html build/release-web-host/normal/index.html
+          cp tool/web_retry_smoke.html build/release-web-host/retry/index.html
+          cp build/release-download/cel_bridge.wasm build/release-web-host/
+          cp build/release-download/wasm_exec.js build/release-web-host/
+          python3 -m http.server 8127 --directory build/release-web-host \
+            >build/release-web.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid"' EXIT
+          for attempt in $(seq 1 20); do
+            if curl --fail --silent http://127.0.0.1:8127/normal/ \
+              >/dev/null; then break; fi
+            sleep 1
+          done
+          dart run tool/web_smoke_runner.dart \
+            http://127.0.0.1:8127/normal/ \
+            | tee build/release-web-host/normal/result.txt
+          grep -Fq '0.1.0|true|true' build/release-web-host/normal/result.txt
+          dart run tool/web_smoke_runner.dart \
+            http://127.0.0.1:8127/retry/ \
+            | tee build/release-web-host/retry/result.txt
+          grep -Fq 'retry|0.1.0|true' build/release-web-host/retry/result.txt
 
       - name: Run release hook against downloaded Draft assets
         shell: bash

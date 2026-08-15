@@ -17,7 +17,13 @@ Future<void> main(List<String> args) async {
     if (!input.config.buildCodeAssets) return;
 
     final code = input.config.code;
-    final target = _target(code.targetOS, code.targetArchitecture);
+    final target = _target(
+      code.targetOS,
+      code.targetArchitecture,
+      iosSimulator:
+          code.targetOS == OS.iOS &&
+          code.iOS.targetSdk == IOSSdk.iPhoneSimulator,
+    );
     final sourceBuild = _asBool(input.userDefines['build_from_source']);
     final libraryName = _libraryName(code.targetOS, target.staticLinking);
     final assetPath = input.outputDirectory.resolve(libraryName);
@@ -50,7 +56,7 @@ bool _asBool(Object? value) {
   return false;
 }
 
-_Target _target(OS os, Architecture architecture) {
+_Target _target(OS os, Architecture architecture, {bool iosSimulator = false}) {
   final arch = switch (architecture.name) {
     'arm' => 'arm',
     'arm64' => 'arm64',
@@ -73,19 +79,25 @@ _Target _target(OS os, Architecture architecture) {
     os: os,
     goos: goos,
     goarch: arch,
-    name: _targetName(os, architecture),
+    name: _targetName(os, architecture, iosSimulator: iosSimulator),
     staticLinking: os == OS.iOS,
   );
 }
 
-String _targetName(OS os, Architecture architecture) => switch (os) {
+String _targetName(
+  OS os,
+  Architecture architecture, {
+  bool iosSimulator = false,
+}) => switch (os) {
   OS.android => switch (architecture.name) {
     'arm64' => 'android-arm64-v8a',
     'arm' => 'android-armeabi-v7a',
     'x64' => 'android-x86_64',
     final value => '${os.name}-$value',
   },
-  OS.iOS => 'ios-${architecture.name == 'x64' ? 'x86_64' : architecture.name}',
+  OS.iOS =>
+    'ios-${architecture.name == 'x64' ? 'x86_64' : architecture.name}'
+        '${iosSimulator ? '-simulator' : ''}',
   OS.linux =>
     'linux-${architecture.name == 'x64'
         ? 'x86_64'

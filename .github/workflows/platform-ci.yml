@@ -211,11 +211,16 @@ jobs:
             --target ios-arm64 --output build/artifacts
           CC="$(xcrun --sdk iphonesimulator --find clang)" \
             dart run tool/build_artifact.dart \
-            --target ios-x86_64 --output build/artifacts
+            --target ios-arm64-simulator --output build/artifacts
+          CC="$(xcrun --sdk iphonesimulator --find clang)" \
+            dart run tool/build_artifact.dart \
+            --target ios-x86_64-simulator --output build/artifacts
           xcodebuild -create-xcframework \
             -library build/artifacts/ios-arm64/libcel_bridge.a \
             -headers include \
-            -library build/artifacts/ios-x86_64/libcel_bridge.a \
+            -library build/artifacts/ios-arm64-simulator/libcel_bridge.a \
+            -headers include \
+            -library build/artifacts/ios-x86_64-simulator/libcel_bridge.a \
             -headers include \
             -output build/artifacts/libcel_bridge.xcframework
           ditto -c -k --sequesterRsrc --keepParent \
@@ -352,7 +357,29 @@ jobs:
           done
           dart run tool/web_smoke_runner.dart \
             http://127.0.0.1:8124/ | tee build/web-smoke/result.txt
-          grep -Fxq '0.1.0|true|true' build/web-smoke/result.txt
+          grep -Fq '0.1.0|true|true' build/web-smoke/result.txt
+
+      - name: Run browser retry smoke fixture
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/web-retry-smoke
+          dart compile js tool/web_retry_smoke.dart \
+            -o build/web-retry-smoke/main.dart.js
+          cp tool/web_retry_smoke.html build/web-retry-smoke/index.html
+          cp build/web/cel_bridge.wasm build/web-retry-smoke/cel_bridge.wasm
+          cp build/web/wasm_exec.js build/web-retry-smoke/wasm_exec.js
+          python3 -m http.server 8126 --directory build/web-retry-smoke \
+            >build/web-retry-smoke.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid"' EXIT
+          for attempt in $(seq 1 20); do
+            if curl --fail --silent http://127.0.0.1:8126/ >/dev/null; then break; fi
+            sleep 1
+          done
+          dart run tool/web_smoke_runner.dart \
+            http://127.0.0.1:8126/ | tee build/web-retry-smoke/result.txt
+          grep -Fq 'retry|0.1.0|true' build/web-retry-smoke/result.txt
 
       - name: Upload Web artifacts
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

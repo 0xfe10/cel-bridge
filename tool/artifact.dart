@@ -103,7 +103,14 @@ const artifactTargets = <ArtifactTarget>[
     staticLinking: true,
   ),
   ArtifactTarget(
-    name: 'ios-x86_64',
+    name: 'ios-arm64-simulator',
+    goos: 'ios',
+    goarch: 'arm64',
+    libraryName: 'libcel_bridge.a',
+    staticLinking: true,
+  ),
+  ArtifactTarget(
+    name: 'ios-x86_64-simulator',
     goos: 'ios',
     goarch: 'amd64',
     libraryName: 'libcel_bridge.a',
