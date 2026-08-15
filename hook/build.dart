@@ -9,7 +9,7 @@ import 'package:hooks/hooks.dart';
 
 const _runtimeVersion = '0.1.0';
 const _protocolVersion = 1;
-const _releaseBase =
+const _defaultReleaseBase =
     'https://github.com/0xfe10/cel-bridge/releases/download/v$_runtimeVersion';
 
 Future<void> main(List<String> args) async {
@@ -115,8 +115,15 @@ Future<void> _downloadArtifact(
   String libraryName,
   Uri assetPath,
 ) async {
+  final releaseBase = _releaseBase(input.userDefines['release_base_url']);
+  final hasReleaseOverride =
+      input.userDefines['release_base_url'] is String &&
+      (input.userDefines['release_base_url'] as String).trim().isNotEmpty;
+  final allowInsecure = _asBool(
+    input.userDefines['allow_insecure_release_base'],
+  );
   final manifestUri = Uri.parse(
-    '$_releaseBase/cel-bridge-manifest-v$_runtimeVersion.json',
+    '$releaseBase/cel-bridge-manifest-v$_runtimeVersion.json',
   );
   final localDirectory = input.userDefines.path('artifact_directory');
   if (localDirectory != null) {
@@ -133,19 +140,21 @@ Future<void> _downloadArtifact(
       'local artifact directory has no $libraryName for ${target.name}',
     );
   }
-  final cacheDirectory = input.packageRoot.resolve(
-    '.dart_tool/cel_bridge/artifacts/$_runtimeVersion/${target.name}/',
-  );
-  if (await _copyLocalArtifact(
-    output,
-    cacheDirectory,
-    target,
-    libraryName,
-    assetPath,
-  )) {
-    return;
+  if (!hasReleaseOverride) {
+    final cacheDirectory = input.packageRoot.resolve(
+      '.dart_tool/cel_bridge/artifacts/$_runtimeVersion/${target.name}/',
+    );
+    if (await _copyLocalArtifact(
+      output,
+      cacheDirectory,
+      target,
+      libraryName,
+      assetPath,
+    )) {
+      return;
+    }
   }
-  final manifest = await _getJson(manifestUri);
+  final manifest = await _getJson(manifestUri, allowInsecure);
   if (manifest['manifestVersion'] != 1 ||
       manifest['runtimeVersion'] != _runtimeVersion ||
       manifest['protocolVersion'] != _protocolVersion) {
@@ -171,10 +180,10 @@ Future<void> _downloadArtifact(
   final expectedHash = _requiredString(artifact['sha256'], 'artifact.sha256');
   final expectedSize = artifact['size'];
   if (expectedSize is! int) throw StateError('artifact.size is not an integer');
-  final archiveUri = Uri.parse('$_releaseBase/$file');
+  final archiveUri = Uri.parse('$releaseBase/$file');
   final archivePath = input.outputDirectory.resolve(file);
   final archiveFile = File.fromUri(archivePath);
-  final bytes = await _download(archiveUri);
+  final bytes = await _download(archiveUri, allowInsecure);
   if (bytes.length != expectedSize) {
     throw StateError('artifact size mismatch for $archiveUri');
   }
@@ -197,7 +206,17 @@ Future<bool> _copyLocalArtifact(
   for (final candidate in candidates) {
     final file = File.fromUri(candidate.resolve(libraryName));
     if (!file.existsSync()) continue;
+    final checksumFile = File.fromUri(candidate.resolve('$libraryName.sha256'));
+    if (!checksumFile.existsSync()) {
+      throw StateError('local artifact is missing $libraryName.sha256');
+    }
+    final expected = (await checksumFile.readAsString()).trim();
+    final actual = sha256.convert(await file.readAsBytes()).toString();
+    if (expected != actual) {
+      throw StateError('local artifact SHA-256 mismatch for ${file.path}');
+    }
     output.dependencies.add(candidate);
+    output.dependencies.add(checksumFile.uri);
     await file.copy(assetPath.toFilePath());
     return true;
   }
@@ -280,8 +299,13 @@ String? _androidCompiler(String goarch) {
   return compiler.existsSync() ? compiler.path : null;
 }
 
-Future<Map<String, Object?>> _getJson(Uri uri) async {
-  final bytes = await _download(uri);
+String _releaseBase(Object? value) {
+  if (value is! String || value.trim().isEmpty) return _defaultReleaseBase;
+  return value.trim().replaceFirst(RegExp(r'/+$'), '');
+}
+
+Future<Map<String, Object?>> _getJson(Uri uri, bool allowInsecure) async {
+  final bytes = await _download(uri, allowInsecure);
   final value = jsonDecode(utf8.decode(bytes));
   if (value is! Map) {
     throw StateError('JSON manifest at $uri is not an object');
@@ -289,8 +313,11 @@ Future<Map<String, Object?>> _getJson(Uri uri) async {
   return value.map((key, value) => MapEntry(key.toString(), value));
 }
 
-Future<Uint8List> _download(Uri uri) async {
-  if (uri.scheme != 'https') {
+Future<Uint8List> _download(Uri uri, bool allowInsecure) async {
+  final localHttp =
+      uri.scheme == 'http' &&
+      (uri.host == '127.0.0.1' || uri.host == 'localhost');
+  if (uri.scheme != 'https' && !(allowInsecure && localHttp)) {
     throw StateError('artifact URL must use HTTPS: $uri');
   }
   final client = HttpClient();

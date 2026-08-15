@@ -57,6 +57,13 @@ jobs:
             --json status,conclusion \
             --jq '[.[] | select(.status == "completed" and .conclusion == "success")] | length')"
           test "$successful_runs" -ge 1
+          successful_platform_runs="$(gh run list \
+            --repo "$GITHUB_REPOSITORY" \
+            --workflow platform-ci.yml \
+            --commit "$RELEASE_COMMIT" \
+            --json status,conclusion \
+            --jq '[.[] | select(.status == "completed" and .conclusion == "success")] | length')"
+          test "$successful_platform_runs" -ge 1
 
   build:
     needs: version
@@ -72,6 +79,14 @@ jobs:
             runner: ubuntu-latest
             kind: android
             target: android-arm64-v8a
+          - name: android-armeabi-v7a
+            runner: ubuntu-latest
+            kind: android
+            target: android-armeabi-v7a
+          - name: android-x86_64
+            runner: ubuntu-latest
+            kind: android
+            target: android-x86_64
           - name: macos-arm64
             runner: macos-14
             kind: native
@@ -116,9 +131,6 @@ jobs:
           sdk_root="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}"
           ndk="$(find "$sdk_root/ndk" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
           test -n "$ndk"
-          compiler="$ndk/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android21-clang"
-          test -x "$compiler"
-          echo "CC=$compiler" >> "$GITHUB_ENV"
           echo "ANDROID_NDK_ROOT=$ndk" >> "$GITHUB_ENV"
 
       - name: Get Dart dependencies
@@ -131,10 +143,45 @@ jobs:
             dart run tool/build_artifact.dart --target wasm --output build/artifacts
             cp build/artifacts/wasm/cel_bridge.wasm build/artifacts/
             cp build/artifacts/wasm/wasm_exec.js build/artifacts/
+          elif [[ "${{ matrix.kind }}" == "android" ]]; then
+            case "${{ matrix.target }}" in
+              android-arm64-v8a) compiler=aarch64-linux-android21-clang ;;
+              android-armeabi-v7a) compiler=armv7a-linux-androideabi21-clang ;;
+              android-x86_64) compiler=x86_64-linux-android21-clang ;;
+              *) echo "unsupported Android target" >&2; exit 1 ;;
+            esac
+            CC="$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/$compiler" \
+              dart run tool/build_artifact.dart \
+              --target "${{ matrix.target }}" --output build/artifacts
           elif [[ "${{ matrix.kind }}" == "ios" ]]; then
             CC="$(xcrun --sdk iphoneos --find clang)" \
               dart run tool/build_artifact.dart \
               --target "${{ matrix.target }}" --output build/artifacts
+            CC="$(xcrun --sdk iphonesimulator --find clang)" \
+              dart run tool/build_artifact.dart \
+              --target ios-x86_64 --output build/artifacts
+            xcodebuild -create-xcframework \
+              -library build/artifacts/ios-arm64/libcel_bridge.a \
+              -headers include \
+              -library build/artifacts/ios-x86_64/libcel_bridge.a \
+              -headers include \
+              -output build/artifacts/libcel_bridge.xcframework
+            ditto -c -k --sequesterRsrc --keepParent \
+              build/artifacts/libcel_bridge.xcframework \
+              build/artifacts/cel-bridge-ios-xcframework-v$(cat VERSION).zip
+          elif [[ "${{ matrix.target }}" == "macos-arm64" ]]; then
+            dart run tool/build_artifact.dart \
+              --target macos-arm64 --output build/artifacts
+            dart run tool/build_artifact.dart \
+              --target macos-x86_64 --output build/artifacts
+            mkdir -p build/artifacts/macos-universal
+            lipo -create \
+              build/artifacts/macos-arm64/libcel_bridge.dylib \
+              build/artifacts/macos-x86_64/libcel_bridge.dylib \
+              -output build/artifacts/macos-universal/libcel_bridge.dylib
+            tar -czf \
+              build/artifacts/cel-bridge-macos-universal-v$(cat VERSION).tar.gz \
+              -C build/artifacts/macos-universal libcel_bridge.dylib
           else
             dart run tool/build_artifact.dart \
               --target "${{ matrix.target }}" --output build/artifacts
@@ -185,7 +232,17 @@ jobs:
             --input build/artifacts --output "$manifest"
           dart run tool/verify_artifact.dart \
             --manifest "$manifest" --input build/artifacts
-          cp build/artifacts/* build/release/
+          find build/artifacts -maxdepth 1 -type f -exec cp {} build/release/ \;
+          version="$(cat VERSION)"
+          git archive --format=tar.gz \
+            --prefix="cel-bridge-$version/" "$GITHUB_SHA" \
+            -o "build/release/cel-bridge-source-v$version.tar.gz"
+          for file in build/release/cel_bridge.wasm \
+            build/release/wasm_exec.js \
+            "build/release/cel-bridge-source-v$version.tar.gz"; do
+            (cd build/release && sha256sum "$(basename "$file")") \
+              >> build/release/checksums.txt
+          done
 
       - name: Create Draft Release
         uses: softprops/action-gh-release@72f2c25fcb47643c292f7107632f7a47c1df5cd8
@@ -233,12 +290,25 @@ jobs:
           dart run tool/verify_artifact.dart \
             --manifest build/release-download/cel-bridge-manifest-v$(cat VERSION).json \
             --input build/release-download
+          (cd build/release-download && sha256sum -c checksums.txt)
 
-      - name: Run remote release consumer smoke
-        working-directory: tool/release_consumer
+      - name: Run release hook against downloaded Draft assets
+        shell: bash
         run: |
+          set -euo pipefail
+          python3 -m http.server 8125 --directory build/release-download \
+            >build/release-download/http.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid"' EXIT
+          for attempt in $(seq 1 20); do
+            if curl --fail --silent http://127.0.0.1:8125/ >/dev/null; then
+              break
+            fi
+            sleep 1
+          done
+          cd tool/release_http_consumer
           dart pub get
-          dart run
+          dart run bin/main.dart
 
   publish-check:
     needs: release-consumption

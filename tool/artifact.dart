@@ -190,6 +190,9 @@ Future<ArtifactBuild> buildNativeArtifact({
   if (!rawFile.existsSync()) {
     throw StateError('Go build did not produce ${rawFile.path}');
   }
+  await File(
+    '${rawFile.path}.sha256',
+  ).writeAsString('${await sha256File(rawFile)}\n', flush: true);
   final archiveFile = archive
       ? File(_join(output.path, _archiveName(target, packageVersion(root))))
       : null;

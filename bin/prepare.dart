@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:isolate';
 
 import '../tool/artifact.dart';
 
@@ -16,13 +17,20 @@ Future<void> main(List<String> args) async {
     return;
   }
   try {
-    final root = Directory.current;
+    final versionUri = await Isolate.resolvePackageUri(
+      Uri.parse('package:cel_bridge/VERSION'),
+    );
+    if (versionUri == null) {
+      throw StateError('could not resolve the cel_bridge package root');
+    }
+    final sourceRoot = Directory.fromUri(versionUri).parent.parent;
+    final outputRoot = Directory.current;
     final platform = parseOption(args, 'platform') ?? 'native';
     if (platform == 'web') {
       final output = Directory(parseOption(args, 'output') ?? 'web/cel_bridge')
         ..createSync(recursive: true);
       final build = await buildWasmArtifact(
-        root: root,
+        root: sourceRoot,
         output: Directory('.dart_tool/cel_bridge/prepare')
           ..createSync(recursive: true),
         archive: false,
@@ -41,10 +49,13 @@ Future<void> main(List<String> args) async {
         : ArtifactTarget.parse(targetOption);
     final output = Directory(
       parseOption(args, 'output') ??
-          '.dart_tool/cel_bridge/artifacts/${packageVersion(root)}',
+          '${outputRoot.path}${Platform.pathSeparator}.dart_tool'
+              '${Platform.pathSeparator}cel_bridge'
+              '${Platform.pathSeparator}artifacts'
+              '${Platform.pathSeparator}${packageVersion(sourceRoot)}',
     )..createSync(recursive: true);
     final build = await buildNativeArtifact(
-      root: root,
+      root: sourceRoot,
       target: target,
       output: output,
       archive: false,
