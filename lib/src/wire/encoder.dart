@@ -15,7 +15,7 @@ String encodeVariables(Map<String, Object?> variables) {
 }
 
 Object? _jsonValue(Object? value) {
-  if (value is CelValue) return _tag(value.toJson());
+  if (value is CelValue) return _tagCelValue(value);
   if (value is BigInt) {
     final kind = value.isNegative || value <= _maxCelInt ? 'int' : 'uint';
     return _tag({'kind': kind, 'value': value.toString()});
@@ -50,6 +50,25 @@ Map<String, Object?> _tag(Map<String, Object?> value) => {
   _taggedValueMarker: true,
   ...value,
 };
+
+Map<String, Object?> _tagCelValue(CelValue value) {
+  if (value is CelListValue) {
+    return _tag({
+      'kind': 'list',
+      'items': [for (final item in value.values) _jsonValue(item)],
+    });
+  }
+  if (value is CelMapValue) {
+    return _tag({
+      'kind': 'map',
+      'entries': [
+        for (final entry in value.entries)
+          {'key': _jsonValue(entry.key), 'value': _jsonValue(entry.value)},
+      ],
+    });
+  }
+  return _tag(value.toJson());
+}
 
 String _formatDouble(double value) {
   if (value.isNaN) return 'NaN';

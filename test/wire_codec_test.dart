@@ -16,6 +16,13 @@ void main() {
                 'bytes': Uint8List.fromList([72, 105]),
                 'notANumber': double.nan,
                 'nested': [DateTime.utc(2026, 8, 15)],
+                'celList': CelListValue([CelIntValue(BigInt.from(7))]),
+                'celMap': CelMapValue([
+                  CelMapEntry(
+                    const CelStringValue('answer'),
+                    CelIntValue(BigInt.from(7)),
+                  ),
+                ]),
               }),
             )
             as Map<String, Object?>;
@@ -44,6 +51,23 @@ void main() {
       r'$cel_bridge': true,
       'kind': 'timestamp',
       'value': '2026-08-15T00:00:00Z',
+    });
+    expect(encoded['celList'], {
+      r'$cel_bridge': true,
+      'kind': 'list',
+      'items': [
+        {r'$cel_bridge': true, 'kind': 'int', 'value': '7'},
+      ],
+    });
+    expect(encoded['celMap'], {
+      r'$cel_bridge': true,
+      'kind': 'map',
+      'entries': [
+        {
+          'key': {r'$cel_bridge': true, 'kind': 'string', 'value': 'answer'},
+          'value': {r'$cel_bridge': true, 'kind': 'int', 'value': '7'},
+        },
+      ],
     });
   });
 
