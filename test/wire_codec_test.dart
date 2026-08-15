@@ -1,0 +1,72 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
+import 'package:cel_bridge/cel_bridge.dart';
+import 'package:cel_bridge/src/wire/decoder.dart';
+import 'package:cel_bridge/src/wire/encoder.dart';
+import 'package:test/test.dart';
+
+void main() {
+  test('encodes Dart variables as CEL-safe JSON', () {
+    final encoded =
+        jsonDecode(
+              encodeVariables({
+                'small': BigInt.from(4),
+                'large': BigInt.parse('18446744073709551615'),
+                'bytes': Uint8List.fromList([72, 105]),
+                'notANumber': double.nan,
+                'nested': [DateTime.utc(2026, 8, 15)],
+              }),
+            )
+            as Map<String, Object?>;
+
+    expect(encoded['small'], {'kind': 'int', 'value': '4'});
+    expect(encoded['large'], {'kind': 'uint', 'value': '18446744073709551615'});
+    expect(encoded['bytes'], {'kind': 'bytes', 'value': 'SGk='});
+    expect(encoded['notANumber'], {'kind': 'double', 'value': 'NaN'});
+    expect((encoded['nested'] as List).single, {
+      'kind': 'timestamp',
+      'value': '2026-08-15T00:00:00.000Z',
+    });
+  });
+
+  test('decodes successful validation and evaluation responses', () {
+    const validation =
+        '{"protocolVersion":1,"ok":true,"result":{"valid":false,"issues":['
+        '{"severity":"error","code":"parse_error","message":"bad",'
+        '"line":1,"column":2}]}}';
+    final result = decodeValidation(validation);
+    expect(result.valid, isFalse);
+    expect(result.issues.single.column, 2);
+
+    const evaluation =
+        '{"protocolVersion":1,"ok":true,"result":{"kind":"int",'
+        '"value":"7"}}';
+    expect((decodeEvaluation(evaluation) as CelIntValue).value, BigInt.from(7));
+  });
+
+  test('maps malformed and mismatched responses to bridge errors', () {
+    expect(
+      () => decodeEvaluation('not json'),
+      throwsA(
+        isA<CelBridgeException>().having(
+          (e) => e.code,
+          'code',
+          'protocol_mismatch',
+        ),
+      ),
+    );
+    expect(
+      () => decodeEvaluation(
+        '{"protocolVersion":2,"ok":true,"result":{"kind":"null"}}',
+      ),
+      throwsA(
+        isA<CelBridgeException>().having(
+          (e) => e.code,
+          'code',
+          'protocol_mismatch',
+        ),
+      ),
+    );
+  });
+}
