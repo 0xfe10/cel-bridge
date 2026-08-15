@@ -8,8 +8,3 @@ environment:
 dependencies:
   cel_bridge:
     path: ../..
-
-hooks:
-  user_defines:
-    cel_bridge:
-      artifact_directory: ../../build/consumer/

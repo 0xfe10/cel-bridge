@@ -31,7 +31,7 @@ jobs:
         run: dart pub get
 
       - name: Build Linux source artifact
-        run: dart run bin/prepare.dart --target linux-x86_64 --output build/consumer
+        run: dart run bin/prepare.dart --target linux-x86_64
         env:
           CEL_BRIDGE_BUILD_FROM_SOURCE: '1'
 
@@ -226,7 +226,7 @@ jobs:
         run: dart pub get
 
       - name: Build Windows source artifact
-        run: dart run bin/prepare.dart --target windows-x86_64 --output build/consumer
+        run: dart run bin/prepare.dart --target windows-x86_64
         env:
           CEL_BRIDGE_BUILD_FROM_SOURCE: '1'
 
