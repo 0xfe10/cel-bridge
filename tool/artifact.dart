@@ -171,6 +171,15 @@ Future<ArtifactBuild> buildNativeArtifact({
   final rawDirectory = Directory(_join(output.path, target.name))
     ..createSync(recursive: true);
   final rawFile = File(_join(rawDirectory.path, target.libraryName));
+  final environment = <String, String>{
+    ...Platform.environment,
+    'CGO_ENABLED': '1',
+    'GOOS': target.goos,
+    'GOARCH': target.goarch,
+  };
+  if (target.goos == 'ios') {
+    environment.addAll(await _iosCompilerEnvironment(target));
+  }
   final result = await Process.run(
     'go',
     [
@@ -182,12 +191,7 @@ Future<ArtifactBuild> buildNativeArtifact({
       './cmd/cel-bridge-native',
     ],
     workingDirectory: root.path,
-    environment: {
-      ...Platform.environment,
-      'CGO_ENABLED': '1',
-      'GOOS': target.goos,
-      'GOARCH': target.goarch,
-    },
+    environment: environment,
   );
   if (result.exitCode != 0) {
     throw StateError(
@@ -213,6 +217,43 @@ Future<ArtifactBuild> buildNativeArtifact({
   }
   return ArtifactBuild(target: target, rawFile: rawFile, archive: archiveFile);
 }
+
+Future<Map<String, String>> _iosCompilerEnvironment(
+  ArtifactTarget target,
+) async {
+  final simulator = target.name.endsWith('-simulator');
+  final sdk = simulator ? 'iphonesimulator' : 'iphoneos';
+  final sdkPath = await _xcrun(['--sdk', sdk, '--show-sdk-path']);
+  final compiler = await _xcrun(['--sdk', sdk, '--find', 'clang']);
+  final architecture = target.goarch == 'amd64' ? 'x86_64' : target.goarch;
+  final triple = '$architecture-apple-ios${simulator ? '-simulator' : ''}';
+  final flags = '-isysroot $sdkPath -target $triple';
+  return {
+    'CC': compiler,
+    'SDKROOT': sdkPath,
+    'CGO_CFLAGS_ALLOW': r'-target|-isysroot',
+    'CGO_LDFLAGS_ALLOW': r'-target|-isysroot',
+    'CGO_CFLAGS': _appendFlags(Platform.environment['CGO_CFLAGS'], flags),
+    'CGO_LDFLAGS': _appendFlags(Platform.environment['CGO_LDFLAGS'], flags),
+  };
+}
+
+Future<String> _xcrun(List<String> args) async {
+  final result = await Process.run('xcrun', args);
+  if (result.exitCode != 0) {
+    throw StateError('xcrun ${args.join(' ')} failed: ${result.stderr}');
+  }
+  final value = result.stdout.toString().trim();
+  if (value.isEmpty) {
+    throw StateError('xcrun ${args.join(' ')} returned no value');
+  }
+  return value;
+}
+
+String _appendFlags(String? existing, String flags) => [
+  if (existing != null && existing.trim().isNotEmpty) existing.trim(),
+  flags,
+].join(' ');
 
 Future<WasmBuild> buildWasmArtifact({
   required Directory root,

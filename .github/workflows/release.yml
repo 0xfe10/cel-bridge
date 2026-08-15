@@ -163,12 +163,15 @@ jobs:
             CC="$(xcrun --sdk iphonesimulator --find clang)" \
               dart run tool/build_artifact.dart \
               --target ios-x86_64-simulator --output build/artifacts
+            mkdir -p build/artifacts/ios-simulator
+            lipo -create \
+              build/artifacts/ios-arm64-simulator/libcel_bridge.a \
+              build/artifacts/ios-x86_64-simulator/libcel_bridge.a \
+              -output build/artifacts/ios-simulator/libcel_bridge.a
             xcodebuild -create-xcframework \
               -library build/artifacts/ios-arm64/libcel_bridge.a \
               -headers include \
-              -library build/artifacts/ios-arm64-simulator/libcel_bridge.a \
-              -headers include \
-              -library build/artifacts/ios-x86_64-simulator/libcel_bridge.a \
+              -library build/artifacts/ios-simulator/libcel_bridge.a \
               -headers include \
               -output build/artifacts/libcel_bridge.xcframework
             ditto -c -k --sequesterRsrc --keepParent \
@@ -299,9 +302,32 @@ jobs:
             --input build/release-download
           (cd build/release-download && sha256sum -c checksums.txt)
           while IFS= read -r -d '' archive; do
+            name="$(basename "$archive")"
             case "$archive" in
-              *.tar.gz) tar -tzf "$archive" >/dev/null ;;
-              *.zip) unzip -tqq "$archive" >/dev/null ;;
+              *.tar.gz) listing="$(tar -tzf "$archive")" ;;
+              *.zip) listing="$(unzip -Z1 "$archive")" ;;
+              *) echo "unsupported archive $archive" >&2; exit 1 ;;
+            esac
+            case "$name" in
+              cel-bridge-source-*)
+                grep -Eq '(^|/)go\.mod$' <<<"$listing"
+                ;;
+              cel-bridge-wasm-*)
+                grep -Eq '(^|/)cel_bridge\.wasm$' <<<"$listing"
+                grep -Eq '(^|/)wasm_exec\.js$' <<<"$listing"
+                ;;
+              *ios-xcframework*)
+                grep -Eq '(^|/)libcel_bridge\.a$' <<<"$listing"
+                ;;
+              *windows-*)
+                grep -Eq '(^|/)cel_bridge\.dll$' <<<"$listing"
+                ;;
+              *macos-*)
+                grep -Eq '(^|/)libcel_bridge\.dylib$' <<<"$listing"
+                ;;
+              *)
+                grep -Eq '(^|/)libcel_bridge\.so$' <<<"$listing"
+                ;;
             esac
           done < <(find build/release-download -maxdepth 1 -type f \
             \( -name '*.tar.gz' -o -name '*.zip' \) -print0)

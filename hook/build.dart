@@ -81,6 +81,7 @@ _Target _target(OS os, Architecture architecture, {bool iosSimulator = false}) {
     goarch: arch,
     name: _targetName(os, architecture, iosSimulator: iosSimulator),
     staticLinking: os == OS.iOS,
+    iosSimulator: iosSimulator,
   );
 }
 
@@ -255,7 +256,7 @@ Future<void> _buildFromSource(
     'CGO_ENABLED': '1',
     'GOOS': target.goos,
     'GOARCH': target.goarch,
-    ..._compilerEnvironment(androidCompiler),
+    ...await _compilerEnvironment(target, androidCompiler),
   };
   final result = await Process.run(
     'go',
@@ -281,8 +282,52 @@ Future<void> _buildFromSource(
   }
 }
 
-Map<String, String> _compilerEnvironment(String? compiler) =>
-    compiler == null ? const {} : {'CC': compiler};
+Future<Map<String, String>> _compilerEnvironment(
+  _Target target,
+  String? compiler,
+) async {
+  final values = <String, String>{};
+  if (compiler != null) {
+    values['CC'] = compiler;
+  }
+  if (target.os != OS.iOS) return values;
+  final sdk = target.iosSimulator ? 'iphonesimulator' : 'iphoneos';
+  final sdkPath = await _xcrun(['--sdk', sdk, '--show-sdk-path']);
+  values['CC'] = await _xcrun(['--sdk', sdk, '--find', 'clang']);
+  values['SDKROOT'] = sdkPath;
+  values['CGO_CFLAGS_ALLOW'] = r'-target|-isysroot';
+  values['CGO_LDFLAGS_ALLOW'] = r'-target|-isysroot';
+  final architecture = target.goarch == 'amd64' ? 'x86_64' : target.goarch;
+  final triple =
+      '$architecture-apple-ios${target.iosSimulator ? '-simulator' : ''}';
+  final flags = '-isysroot $sdkPath -target $triple';
+  values['CGO_CFLAGS'] = _appendFlags(
+    Platform.environment['CGO_CFLAGS'],
+    flags,
+  );
+  values['CGO_LDFLAGS'] = _appendFlags(
+    Platform.environment['CGO_LDFLAGS'],
+    flags,
+  );
+  return values;
+}
+
+Future<String> _xcrun(List<String> args) async {
+  final result = await Process.run('xcrun', args);
+  if (result.exitCode != 0) {
+    throw StateError('xcrun ${args.join(' ')} failed: ${result.stderr}');
+  }
+  final value = result.stdout.toString().trim();
+  if (value.isEmpty) {
+    throw StateError('xcrun ${args.join(' ')} returned no value');
+  }
+  return value;
+}
+
+String _appendFlags(String? existing, String flags) => [
+  if (existing != null && existing.trim().isNotEmpty) existing.trim(),
+  flags,
+].join(' ');
 
 String? _androidCompiler(String goarch) {
   final existing = Platform.environment['CC'];
@@ -389,6 +434,7 @@ final class _Target {
     required this.goarch,
     required this.name,
     required this.staticLinking,
+    required this.iosSimulator,
   });
 
   final OS os;
@@ -396,4 +442,5 @@ final class _Target {
   final String goarch;
   final String name;
   final bool staticLinking;
+  final bool iosSimulator;
 }

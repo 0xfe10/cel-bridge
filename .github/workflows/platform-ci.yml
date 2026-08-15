@@ -215,12 +215,15 @@ jobs:
           CC="$(xcrun --sdk iphonesimulator --find clang)" \
             dart run tool/build_artifact.dart \
             --target ios-x86_64-simulator --output build/artifacts
+          mkdir -p build/artifacts/ios-simulator
+          lipo -create \
+            build/artifacts/ios-arm64-simulator/libcel_bridge.a \
+            build/artifacts/ios-x86_64-simulator/libcel_bridge.a \
+            -output build/artifacts/ios-simulator/libcel_bridge.a
           xcodebuild -create-xcframework \
             -library build/artifacts/ios-arm64/libcel_bridge.a \
             -headers include \
-            -library build/artifacts/ios-arm64-simulator/libcel_bridge.a \
-            -headers include \
-            -library build/artifacts/ios-x86_64-simulator/libcel_bridge.a \
+            -library build/artifacts/ios-simulator/libcel_bridge.a \
             -headers include \
             -output build/artifacts/libcel_bridge.xcframework
           ditto -c -k --sequesterRsrc --keepParent \
