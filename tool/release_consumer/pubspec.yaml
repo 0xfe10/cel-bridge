@@ -1,0 +1,15 @@
+name: cel_bridge_release_consumer
+description: Internal release consumption smoke package.
+publish_to: none
+
+environment:
+  sdk: '>=3.10.0 <4.0.0'
+
+dependencies:
+  cel_bridge:
+    path: ../..
+
+hooks:
+  user_defines:
+    cel_bridge:
+      artifact_directory: ../../build/consumer/
