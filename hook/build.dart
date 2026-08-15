@@ -23,6 +23,10 @@ Future<void> main(List<String> args) async {
       iosSimulator:
           code.targetOS == OS.iOS &&
           code.iOS.targetSdk == IOSSdk.iPhoneSimulator,
+      staticLinking:
+          code.targetOS == OS.iOS &&
+          (code.linkModePreference == LinkModePreference.static ||
+              code.linkModePreference == LinkModePreference.preferStatic),
     );
     final sourceBuild = _asBool(input.userDefines['build_from_source']);
     final libraryName = _libraryName(code.targetOS, target.staticLinking);
@@ -56,7 +60,12 @@ bool _asBool(Object? value) {
   return false;
 }
 
-_Target _target(OS os, Architecture architecture, {bool iosSimulator = false}) {
+_Target _target(
+  OS os,
+  Architecture architecture, {
+  bool iosSimulator = false,
+  required bool staticLinking,
+}) {
   if ((os == OS.linux || os == OS.windows) && architecture.name == 'arm64') {
     throw UnsupportedError(
       'arm64 ${os.name} artifacts are not included in v1 release assets',
@@ -85,7 +94,7 @@ _Target _target(OS os, Architecture architecture, {bool iosSimulator = false}) {
     goos: goos,
     goarch: arch,
     name: _targetName(os, architecture, iosSimulator: iosSimulator),
-    staticLinking: os == OS.iOS,
+    staticLinking: staticLinking,
     iosSimulator: iosSimulator,
   );
 }
@@ -122,6 +131,7 @@ String _libraryName(OS os, bool staticLinking) {
   return switch (os) {
     OS.windows => 'cel_bridge.dll',
     OS.macOS => 'libcel_bridge.dylib',
+    OS.iOS => 'libcel_bridge.dylib',
     _ => 'libcel_bridge.so',
   };
 }
