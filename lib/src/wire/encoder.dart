@@ -26,10 +26,14 @@ Object? _jsonValue(Object? value) {
   if (value is CelDurationValue) return value.toJson();
   if (value is List) return [for (final item in value) _jsonValue(item)];
   if (value is Map) {
-    return {
-      for (final entry in value.entries)
-        if (entry.key is String) entry.key as String: _jsonValue(entry.value),
-    };
+    final result = <String, Object?>{};
+    for (final entry in value.entries) {
+      if (entry.key is! String) {
+        throw ArgumentError('map keys must be strings in JSON variables');
+      }
+      result[entry.key as String] = _jsonValue(entry.value);
+    }
+    return result;
   }
   if (value == null || value is bool || value is String) return value;
   if (value is double) {

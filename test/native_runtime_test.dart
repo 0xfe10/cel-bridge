@@ -27,4 +27,21 @@ void main() {
     );
     expect((value as CelBoolValue).value, isTrue);
   });
+
+  test('rejects NUL characters before the C ABI boundary', () async {
+    final runtime = await CelRuntime.initialize();
+    expect(
+      () => runtime.validate(
+        environment: _environment,
+        source: 'age\u0000 >= 18',
+      ),
+      throwsA(
+        isA<CelBridgeException>().having(
+          (error) => error.code,
+          'code',
+          'invalid_request',
+        ),
+      ),
+    );
+  });
 }

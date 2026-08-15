@@ -30,12 +30,11 @@ func DecodeVariables(raw string, maxBytes, maxDepth int) (map[string]any, error)
 	}
 	decoder := json.NewDecoder(strings.NewReader(raw))
 	decoder.UseNumber()
-	var decoded any
-	if err := decoder.Decode(&decoded); err != nil {
+	decoded, err := decodeJSON(decoder)
+	if err != nil {
 		return nil, fmt.Errorf("invalid variables JSON: %w", err)
 	}
-	var trailing any
-	if err := decoder.Decode(&trailing); err != io.EOF {
+	if _, err := decoder.Token(); err != io.EOF {
 		if err == nil {
 			return nil, fmt.Errorf("variables JSON contains trailing data")
 		}
@@ -50,6 +49,61 @@ func DecodeVariables(raw string, maxBytes, maxDepth int) (map[string]any, error)
 		return nil, err
 	}
 	return value.(map[string]any), nil
+}
+
+func decodeJSON(decoder *json.Decoder) (any, error) {
+	token, err := decoder.Token()
+	if err != nil {
+		return nil, err
+	}
+	switch token := token.(type) {
+	case json.Delim:
+		switch token {
+		case '{':
+			result := make(map[string]any)
+			for decoder.More() {
+				keyToken, err := decoder.Token()
+				if err != nil {
+					return nil, err
+				}
+				key, ok := keyToken.(string)
+				if !ok {
+					return nil, fmt.Errorf("JSON object key is not a string")
+				}
+				if _, exists := result[key]; exists {
+					return nil, fmt.Errorf("duplicate JSON object key %q", key)
+				}
+				value, err := decodeJSON(decoder)
+				if err != nil {
+					return nil, err
+				}
+				result[key] = value
+			}
+			end, err := decoder.Token()
+			if err != nil || end != json.Delim('}') {
+				return nil, fmt.Errorf("invalid JSON object")
+			}
+			return result, nil
+		case '[':
+			result := make([]any, 0)
+			for decoder.More() {
+				value, err := decodeJSON(decoder)
+				if err != nil {
+					return nil, err
+				}
+				result = append(result, value)
+			}
+			end, err := decoder.Token()
+			if err != nil || end != json.Delim(']') {
+				return nil, fmt.Errorf("invalid JSON array")
+			}
+			return result, nil
+		default:
+			return nil, fmt.Errorf("unexpected JSON delimiter %q", token)
+		}
+	default:
+		return token, nil
+	}
 }
 
 func decodeInput(value any, depth, maxDepth int) (any, error) {
@@ -75,8 +129,8 @@ func decodeInput(value any, depth, maxDepth int) (any, error) {
 		}
 		return result, nil
 	case map[string]any:
-		if tagged, ok := decodeTagged(value); ok {
-			return tagged, nil
+		if _, tagged := value["kind"]; tagged {
+			return decodeTagged(value, depth, maxDepth)
 		}
 		if len(value) > maxCollectionItems {
 			return nil, fmt.Errorf("map exceeds %d entries", maxCollectionItems)
@@ -113,65 +167,137 @@ func decodeNumber(value json.Number) (any, error) {
 	return nil, fmt.Errorf("integer %q is outside CEL int/uint range", text)
 }
 
-func decodeTagged(value map[string]any) (any, bool) {
+func decodeTagged(value map[string]any, depth, maxDepth int) (any, error) {
 	kind, ok := value["kind"].(string)
 	if !ok {
-		return nil, false
+		return nil, fmt.Errorf("tagged value kind must be a string")
 	}
 	raw := value["value"]
 	switch kind {
 	case "null":
-		return nil, true
+		return nil, nil
 	case "bool":
 		decoded, ok := raw.(bool)
-		return decoded, ok
+		if !ok {
+			return nil, fmt.Errorf("tagged bool value must be a boolean")
+		}
+		return decoded, nil
 	case "int":
 		text, ok := raw.(string)
 		if !ok {
-			return nil, false
+			return nil, fmt.Errorf("tagged int value must be a string")
 		}
 		decoded, err := strconv.ParseInt(text, 10, 64)
-		return decoded, err == nil
+		if err != nil {
+			return nil, fmt.Errorf("invalid tagged int value %q", text)
+		}
+		return decoded, nil
 	case "uint":
 		text, ok := raw.(string)
 		if !ok {
-			return nil, false
+			return nil, fmt.Errorf("tagged uint value must be a string")
 		}
 		decoded, err := strconv.ParseUint(text, 10, 64)
-		return decoded, err == nil
+		if err != nil {
+			return nil, fmt.Errorf("invalid tagged uint value %q", text)
+		}
+		return decoded, nil
 	case "double":
 		text, ok := raw.(string)
 		if !ok {
-			return nil, false
+			return nil, fmt.Errorf("tagged double value must be a string")
 		}
 		decoded, err := parseDouble(text)
-		return decoded, err == nil
+		if err != nil {
+			return nil, fmt.Errorf("invalid tagged double value %q", text)
+		}
+		return decoded, nil
 	case "string":
 		decoded, ok := raw.(string)
-		return decoded, ok
+		if !ok {
+			return nil, fmt.Errorf("tagged string value must be a string")
+		}
+		return decoded, nil
 	case "bytes":
 		text, ok := raw.(string)
 		if !ok {
-			return nil, false
+			return nil, fmt.Errorf("tagged bytes value must be a string")
 		}
 		decoded, err := base64.StdEncoding.DecodeString(text)
-		return decoded, err == nil
+		if err != nil {
+			return nil, fmt.Errorf("invalid tagged bytes value: %w", err)
+		}
+		return decoded, nil
 	case "timestamp":
 		text, ok := raw.(string)
 		if !ok {
-			return nil, false
+			return nil, fmt.Errorf("tagged timestamp value must be a string")
 		}
 		decoded, err := time.Parse(time.RFC3339Nano, text)
-		return decoded.UTC(), err == nil
+		if err != nil {
+			return nil, fmt.Errorf("invalid tagged timestamp value %q", text)
+		}
+		return decoded.UTC(), nil
 	case "duration":
 		text, ok := raw.(string)
 		if !ok {
-			return nil, false
+			return nil, fmt.Errorf("tagged duration value must be a string")
 		}
 		decoded, err := time.ParseDuration(text)
-		return decoded, err == nil
+		if err != nil {
+			return nil, fmt.Errorf("invalid tagged duration value %q", text)
+		}
+		return decoded, nil
+	case "list":
+		items, ok := value["items"].([]any)
+		if !ok || len(items) > maxCollectionItems {
+			return nil, fmt.Errorf("tagged list items are invalid")
+		}
+		result := make([]any, len(items))
+		for i, item := range items {
+			decoded, err := decodeInput(item, depth+1, maxDepth)
+			if err != nil {
+				return nil, err
+			}
+			result[i] = decoded
+		}
+		return result, nil
+	case "map":
+		entries, ok := value["entries"].([]any)
+		if !ok || len(entries) > maxCollectionItems {
+			return nil, fmt.Errorf("tagged map entries are invalid")
+		}
+		result := make(map[any]any, len(entries))
+		for _, item := range entries {
+			entry, ok := item.(map[string]any)
+			if !ok {
+				return nil, fmt.Errorf("tagged map entry must be an object")
+			}
+			key, ok := entry["key"]
+			if !ok {
+				return nil, fmt.Errorf("tagged map entry is missing key")
+			}
+			entryValue, ok := entry["value"]
+			if !ok {
+				return nil, fmt.Errorf("tagged map entry is missing value")
+			}
+			decodedKey, err := decodeInput(key, depth+1, maxDepth)
+			if err != nil {
+				return nil, err
+			}
+			switch decodedKey.(type) {
+			case nil, []byte, []any, map[string]any, map[any]any:
+				return nil, fmt.Errorf("tagged map key is not comparable")
+			}
+			decodedValue, err := decodeInput(entryValue, depth+1, maxDepth)
+			if err != nil {
+				return nil, err
+			}
+			result[decodedKey] = decodedValue
+		}
+		return result, nil
 	default:
-		return nil, false
+		return nil, fmt.Errorf("unsupported tagged value kind %q", kind)
 	}
 }
 

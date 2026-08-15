@@ -43,3 +43,30 @@ func TestDecodeVariablesRejectsTrailingJSON(t *testing.T) {
 		t.Fatal("trailing JSON was accepted")
 	}
 }
+
+func TestDecodeVariablesRejectsDuplicateKeys(t *testing.T) {
+	if _, err := DecodeVariables(`{"age":1,"age":2}`, 1024, 8); err == nil {
+		t.Fatal("duplicate variable key was accepted")
+	}
+}
+
+func TestDecodeVariablesRejectsInvalidTaggedValue(t *testing.T) {
+	if _, err := DecodeVariables(`{"age":{"kind":"int","value":true}}`, 1024, 8); err == nil {
+		t.Fatal("invalid tagged value was accepted")
+	}
+}
+
+func TestDecodeVariablesSupportsTaggedMapKeys(t *testing.T) {
+	variables, err := DecodeVariables(`{
+      "values": {"kind":"map","entries":[
+        {"key":{"kind":"int","value":"1"},"value":"one"}
+      ]}
+    }`, 1024, 8)
+	if err != nil {
+		t.Fatal(err)
+	}
+	values, ok := variables["values"].(map[any]any)
+	if !ok || values[int64(1)] != "one" {
+		t.Fatalf("unexpected tagged map: %#v", variables["values"])
+	}
+}

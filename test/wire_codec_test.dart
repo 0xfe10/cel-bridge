@@ -30,6 +30,15 @@ void main() {
     });
   });
 
+  test('rejects non-string JSON map keys instead of dropping them', () {
+    expect(
+      () => encodeVariables({
+        'values': {1: 'one'},
+      }),
+      throwsA(isA<ArgumentError>()),
+    );
+  });
+
   test('decodes successful validation and evaluation responses', () {
     const validation =
         '{"protocolVersion":1,"ok":true,"result":{"valid":false,"issues":['

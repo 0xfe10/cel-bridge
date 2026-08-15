@@ -40,6 +40,7 @@ final class CelRuntime {
     required Map<String, Object?> environment,
     required String source,
   }) async {
+    _rejectNul(source, 'source');
     try {
       final raw = await _backend.validate(
         encodeEnvironment(environment),
@@ -61,6 +62,7 @@ final class CelRuntime {
     required String source,
     required Map<String, Object?> variables,
   }) async {
+    _rejectNul(source, 'source');
     try {
       final raw = await _backend.evaluate(
         encodeEnvironment(environment),
@@ -76,5 +78,14 @@ final class CelRuntime {
         message: 'failed to encode evaluation request: $error',
       );
     }
+  }
+}
+
+void _rejectNul(String value, String name) {
+  if (value.contains('\u0000')) {
+    throw CelBridgeException(
+      code: 'invalid_request',
+      message: '$name must not contain NUL characters',
+    );
   }
 }
