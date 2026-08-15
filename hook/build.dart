@@ -216,8 +216,9 @@ Future<void> _buildFromSource(
     throw StateError('source build requires Go 1.26; got ${version.trim()}');
   }
   final staticLinking = target.staticLinking;
-  final androidCompiler =
-      target.goos == 'android' ? _androidCompiler(target.goarch) : null;
+  final androidCompiler = target.goos == 'android'
+      ? _androidCompiler(target.goarch)
+      : null;
   final environment = {
     ...Platform.environment,
     'CGO_ENABLED': '1',
@@ -255,14 +256,15 @@ Map<String, String> _compilerEnvironment(String? compiler) =>
 String? _androidCompiler(String goarch) {
   final existing = Platform.environment['CC'];
   if (existing != null && existing.isNotEmpty) return existing;
-  final ndk = Platform.environment['ANDROID_NDK_ROOT'] ??
+  final ndk =
+      Platform.environment['ANDROID_NDK_ROOT'] ??
       Platform.environment['ANDROID_NDK_HOME'];
   if (ndk == null) return null;
   final host = Platform.isWindows
       ? 'windows-x86_64'
       : Platform.isMacOS
-          ? 'darwin-x86_64'
-          : 'linux-x86_64';
+      ? 'darwin-x86_64'
+      : 'linux-x86_64';
   final compilerName = switch (goarch) {
     'arm64' => 'aarch64-linux-android21-clang',
     'arm' => 'armv7a-linux-androideabi21-clang',
@@ -271,9 +273,9 @@ String? _androidCompiler(String goarch) {
   };
   if (compilerName == null) return null;
   final compiler = File.fromUri(
-    Directory(ndk).uri.resolve(
-      'toolchains/llvm/prebuilt/$host/bin/$compilerName',
-    ),
+    Directory(
+      ndk,
+    ).uri.resolve('toolchains/llvm/prebuilt/$host/bin/$compilerName'),
   );
   return compiler.existsSync() ? compiler.path : null;
 }

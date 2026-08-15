@@ -2,7 +2,9 @@ import 'package:cel_bridge/cel_bridge.dart';
 
 const _environment = <String, Object?>{
   'schemaVersion': 1,
-  'variables': {'age': {'type': 'int'}},
+  'variables': {
+    'age': {'type': 'int'},
+  },
 };
 
 Future<void> main() async {

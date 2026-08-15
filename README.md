@@ -113,6 +113,7 @@ message. `issues` contains source location data when available.
 | `invalid_request` | Malformed request or JSON value |
 | `invalid_environment` | Unsupported or invalid environment schema |
 | `source_too_large` / `variables_too_large` | Input size limit exceeded |
+| `output_too_large` | Result exceeded the output limit |
 | `compile_error` | CEL source could not be compiled |
 | `evaluation_error` | CEL evaluation returned an error |
 | `cost_limit_exceeded` | Evaluation cost limit was reached |
