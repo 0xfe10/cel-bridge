@@ -194,7 +194,12 @@ Future<void> _downloadArtifact(
   if (artifact == null) {
     throw StateError('release has no native artifact for ${target.name}');
   }
-  final file = _requiredString(artifact['file'], 'artifact.file');
+  final file = validateReleaseArtifactFile(
+    file: _requiredString(artifact['file'], 'artifact.file'),
+    target: target.name,
+    version: _runtimeVersion,
+    goos: target.goos,
+  );
   final expectedHash = _requiredString(artifact['sha256'], 'artifact.sha256');
   final expectedSize = artifact['size'];
   if (expectedSize is! int) throw StateError('artifact.size is not an integer');
@@ -430,6 +435,20 @@ Uint8List _extractLibrary(
 String _requiredString(Object? value, String name) {
   if (value is String && value.isNotEmpty) return value;
   throw StateError('$name must be a non-empty string');
+}
+
+String validateReleaseArtifactFile({
+  required String file,
+  required String target,
+  required String version,
+  required String goos,
+}) {
+  final extension = goos == 'windows' ? 'zip' : 'tar.gz';
+  final expected = 'cel-bridge-$target-v$version.$extension';
+  if (file != expected) {
+    throw StateError('artifact.file must be $expected');
+  }
+  return file;
 }
 
 final class _Target {

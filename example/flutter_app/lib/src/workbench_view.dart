@@ -141,8 +141,8 @@ final class _WorkbenchState extends State<_Workbench> {
     try {
       final runtime = await _runtime;
       final environment = _jsonObject(_environment.text, 'environment');
-      final variables = _jsonObject(_variables.text, 'variables');
       if (evaluate) {
+        final variables = _jsonObject(_variables.text, 'variables');
         final value = await runtime.evaluate(
           environment: environment,
           source: _source.text,

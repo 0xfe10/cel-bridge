@@ -31,6 +31,21 @@ void main() {
 
     expect(find.textContaining('1:1'), findsOneWidget);
     expect(find.textContaining('undeclared'), findsOneWidget);
+
+    await tester.enterText(source, 'age >= 18');
+    final variables = find.byKey(const ValueKey('variables-field'));
+    await tester.ensureVisible(variables);
+    await tester.enterText(variables, '{not json');
+    await tester.ensureVisible(validate);
+    await tester.tap(validate);
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(seconds: 2)),
+    );
+    await tester.pump();
+    expect(
+      find.text('Expression is valid for this environment.'),
+      findsOneWidget,
+    );
   });
 }
 

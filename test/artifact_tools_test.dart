@@ -18,6 +18,17 @@ void main() {
     );
   });
 
+  test('does not advertise deferred desktop ARM targets', () {
+    expect(
+      () => ArtifactTarget.parse('linux-aarch64'),
+      throwsA(isA<ArgumentError>()),
+    );
+    expect(
+      () => ArtifactTarget.parse('windows-arm64'),
+      throwsA(isA<ArgumentError>()),
+    );
+  });
+
   test('archives files at safe root paths', () {
     final bytes = archiveBytes({
       'libcel_bridge.so': <int>[1, 2, 3],
