@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
@@ -23,6 +24,9 @@ const maxCollectionItems = 4096
 func DecodeVariables(raw string, maxBytes, maxDepth int) (map[string]any, error) {
 	if len(raw) > maxBytes {
 		return nil, fmt.Errorf("variables JSON exceeds %d bytes", maxBytes)
+	}
+	if !utf8.ValidString(raw) {
+		return nil, fmt.Errorf("variables JSON must be valid UTF-8")
 	}
 	decoder := json.NewDecoder(strings.NewReader(raw))
 	decoder.UseNumber()
@@ -289,11 +293,12 @@ func formatDuration(value time.Duration) string {
 		return "0s"
 	}
 	sign := ""
+	magnitude := uint64(value)
 	if value < 0 {
 		sign = "-"
-		value = -value
+		magnitude = uint64(-(value + 1)) + 1
 	}
-	seconds := value / time.Second
-	nanos := value % time.Second
+	seconds := magnitude / uint64(time.Second)
+	nanos := magnitude % uint64(time.Second)
 	return fmt.Sprintf("%s%d.%09ds", sign, seconds, nanos)
 }

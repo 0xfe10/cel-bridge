@@ -54,6 +54,9 @@ func Success(result any) Response {
 }
 
 func Failure(code, message string, issues ...Issue) Response {
+	if issues == nil {
+		issues = []Issue{}
+	}
 	return Response{
 		ProtocolVersion: Version,
 		OK:              false,
