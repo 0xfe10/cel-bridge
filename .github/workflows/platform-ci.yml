@@ -2,6 +2,10 @@ name: Platform CI
 
 on:
   push:
+    branches-ignore:
+      - 'v*'
+    tags-ignore:
+      - 'v*'
   pull_request:
   workflow_dispatch:
 
