@@ -15,15 +15,18 @@ Future<void> loadGoWasm(CelRuntimeOptions options) {
 }
 
 Future<void> _loadGoWasm(CelRuntimeOptions options) async {
-  await _loadScript(options.wasmExecUrl);
+  await _loadScript(options.wasmExecUrl, options.wasmExecIntegrity);
   final go = GoRuntime();
-  final response = web.window.fetch(options.wasmUrl.toJS);
+  final response = web.window.fetch(
+    options.wasmUrl.toJS,
+    _requestInit(options.wasmIntegrity),
+  );
   JSAny module;
   try {
     module = await instantiateStreaming(response, go.importObject).toDart;
   } catch (_) {
     final fallbackResponse = await web.window
-        .fetch(options.wasmUrl.toJS)
+        .fetch(options.wasmUrl.toJS, _requestInit(options.wasmIntegrity))
         .toDart;
     if (!fallbackResponse.ok) {
       throw StateError(
@@ -38,16 +41,23 @@ Future<void> _loadGoWasm(CelRuntimeOptions options) async {
   await _waitUntilReady();
 }
 
-Future<void> _loadScript(String url) {
+web.RequestInit _requestInit(String? integrity) =>
+    web.RequestInit(integrity: integrity ?? '');
+
+Future<void> _loadScript(String url, String? integrity) {
   if (globalGo?.isA<JSFunction>() ?? false) {
     return Future<void>.value();
   }
-  return _scripts[url] ??= _appendScript(url);
+  final key = '$url\n$integrity';
+  return _scripts[key] ??= _appendScript(url, integrity);
 }
 
-Future<void> _appendScript(String url) {
+Future<void> _appendScript(String url, String? integrity) {
   final completer = Completer<void>();
-  final script = web.HTMLScriptElement()..src = url;
+  final script = web.HTMLScriptElement()
+    ..crossOrigin = 'anonymous'
+    ..src = url;
+  if (integrity != null) script.integrity = integrity;
   script.onload = ((JSAny? _) {
     if (!completer.isCompleted) completer.complete();
   }).toJS;
