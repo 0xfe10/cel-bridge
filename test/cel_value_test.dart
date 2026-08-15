@@ -44,4 +44,16 @@ void main() {
       throwsFormatException,
     );
   });
+
+  test('rejects invalid duration components when serialized', () {
+    expect(
+      () => const CelDurationValue(seconds: 1, nanoseconds: -1).toJson(),
+      throwsArgumentError,
+    );
+    expect(
+      () =>
+          const CelDurationValue(seconds: 0, nanoseconds: 1000000000).toWire(),
+      throwsArgumentError,
+    );
+  });
 }

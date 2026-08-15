@@ -130,14 +130,7 @@ final class CelTimestampValue extends CelValue {
 }
 
 final class CelDurationValue extends CelValue {
-  const CelDurationValue({required this.seconds, required this.nanoseconds})
-    : assert(nanoseconds > -1000000000 && nanoseconds < 1000000000),
-      assert(
-        seconds == 0 ||
-            nanoseconds == 0 ||
-            (seconds < 0 && nanoseconds < 0) ||
-            (seconds > 0 && nanoseconds > 0),
-      );
+  const CelDurationValue({required this.seconds, required this.nanoseconds});
 
   factory CelDurationValue.parse(String value) {
     final match = RegExp(r'^(-?)(\d+)(?:\.(\d{1,9}))?s$').firstMatch(value);
@@ -158,13 +151,27 @@ final class CelDurationValue extends CelValue {
   final int seconds;
   final int nanoseconds;
 
-  String toWire() => _formatDuration(seconds, nanoseconds);
+  String toWire() {
+    _validate();
+    return _formatDuration(seconds, nanoseconds);
+  }
 
   @override
-  Map<String, Object?> toJson() => {
-    'kind': 'duration',
-    'value': _formatDuration(seconds, nanoseconds),
-  };
+  Map<String, Object?> toJson() {
+    _validate();
+    return {'kind': 'duration', 'value': _formatDuration(seconds, nanoseconds)};
+  }
+
+  void _validate() {
+    if (nanoseconds <= -1000000000 || nanoseconds >= 1000000000) {
+      throw ArgumentError.value(nanoseconds, 'nanoseconds');
+    }
+    if (seconds != 0 &&
+        nanoseconds != 0 &&
+        ((seconds < 0) != (nanoseconds < 0))) {
+      throw ArgumentError('duration components must have matching signs');
+    }
+  }
 }
 
 final class CelListValue extends CelValue {

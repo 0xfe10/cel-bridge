@@ -27,6 +27,9 @@ Object? _jsonValue(Object? value) {
   if (value is CelDurationValue) return _tag(value.toJson());
   if (value is List) return [for (final item in value) _jsonValue(item)];
   if (value is Map) {
+    if (value.keys.contains(_taggedValueMarker)) {
+      return _isTaggedValue(value) ? value : _tagMap(value);
+    }
     final result = <String, Object?>{};
     for (final entry in value.entries) {
       if (entry.key is! String) {
@@ -68,6 +71,34 @@ Map<String, Object?> _tagCelValue(CelValue value) {
     });
   }
   return _tag(value.toJson());
+}
+
+bool _isTaggedValue(Map value) =>
+    value[_taggedValueMarker] == true &&
+    switch (value['kind']) {
+      'null' ||
+      'bool' ||
+      'int' ||
+      'uint' ||
+      'double' ||
+      'string' ||
+      'bytes' ||
+      'timestamp' ||
+      'duration' ||
+      'list' ||
+      'map' => true,
+      _ => false,
+    };
+
+Map<String, Object?> _tagMap(Map value) {
+  final entries = <Map<String, Object?>>[];
+  for (final entry in value.entries) {
+    if (entry.key is! String) {
+      throw ArgumentError('map keys must be strings in JSON variables');
+    }
+    entries.add({'key': entry.key as String, 'value': _jsonValue(entry.value)});
+  }
+  return _tag({'kind': 'map', 'entries': entries});
 }
 
 String _formatDouble(double value) {

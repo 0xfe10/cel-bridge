@@ -23,6 +23,7 @@ void main() {
                     CelIntValue(BigInt.from(7)),
                   ),
                 ]),
+                'markerMap': {r'$cel_bridge': true, 'kind': 'business'},
               }),
             )
             as Map<String, Object?>;
@@ -67,6 +68,14 @@ void main() {
           'key': {r'$cel_bridge': true, 'kind': 'string', 'value': 'answer'},
           'value': {r'$cel_bridge': true, 'kind': 'int', 'value': '7'},
         },
+      ],
+    });
+    expect(encoded['markerMap'], {
+      r'$cel_bridge': true,
+      'kind': 'map',
+      'entries': [
+        {'key': r'$cel_bridge', 'value': true},
+        {'key': 'kind', 'value': 'business'},
       ],
     });
   });

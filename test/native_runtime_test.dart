@@ -44,4 +44,42 @@ void main() {
       ),
     );
   });
+
+  test('round trips escaped marker maps and nested CelValue inputs', () async {
+    final runtime = await CelRuntime.initialize();
+    const mapEnvironment = <String, Object?>{
+      'schemaVersion': 1,
+      'variables': {
+        'payload': {'type': 'dyn'},
+      },
+    };
+    final markerMap = <String, Object?>{
+      r'$cel_bridge': true,
+      'kind': 'business',
+    };
+    final mapResult = await runtime.evaluate(
+      environment: mapEnvironment,
+      source: 'payload["kind"] == "business"',
+      variables: {'payload': markerMap},
+    );
+    expect((mapResult as CelBoolValue).value, isTrue);
+
+    const listEnvironment = <String, Object?>{
+      'schemaVersion': 1,
+      'variables': {
+        'values': {
+          'type': 'list',
+          'element': {'type': 'int'},
+        },
+      },
+    };
+    final listResult = await runtime.evaluate(
+      environment: listEnvironment,
+      source: 'values[0] == 7',
+      variables: {
+        'values': CelListValue([CelIntValue(BigInt.from(7))]),
+      },
+    );
+    expect((listResult as CelBoolValue).value, isTrue);
+  });
 }

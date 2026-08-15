@@ -126,17 +126,78 @@ func decodeVariables(decoder *json.Decoder) (map[string]rawTypeSpec, error) {
 		if _, exists := variables[name]; exists {
 			return nil, fmt.Errorf("duplicate variable %q", name)
 		}
-		var rawType rawTypeSpec
-		if err := decoder.Decode(&rawType); err != nil {
+		rawType, err := decodeRawTypeSpec(decoder)
+		if err != nil {
 			return nil, err
 		}
-		variables[name] = rawType
+		if rawType == nil {
+			variables[name] = rawTypeSpec{}
+		} else {
+			variables[name] = *rawType
+		}
 	}
 	end, err := decoder.Token()
 	if err != nil || end != json.Delim('}') {
 		return nil, fmt.Errorf("invalid variables object")
 	}
 	return variables, nil
+}
+
+func decodeRawTypeSpec(decoder *json.Decoder) (*rawTypeSpec, error) {
+	token, err := decoder.Token()
+	if err != nil {
+		return nil, err
+	}
+	if token == nil {
+		return nil, nil
+	}
+	if token != json.Delim('{') {
+		return nil, fmt.Errorf("type specification must be an object")
+	}
+	raw := &rawTypeSpec{}
+	seen := make(map[string]struct{})
+	for decoder.More() {
+		keyToken, err := decoder.Token()
+		if err != nil {
+			return nil, err
+		}
+		key, ok := keyToken.(string)
+		if !ok {
+			return nil, fmt.Errorf("type specification key is not a string")
+		}
+		if _, exists := seen[key]; exists {
+			return nil, fmt.Errorf("duplicate type field %q", key)
+		}
+		seen[key] = struct{}{}
+		switch key {
+		case "type":
+			if err := decoder.Decode(&raw.Type); err != nil {
+				return nil, err
+			}
+		case "element":
+			raw.Element, err = decodeRawTypeSpec(decoder)
+			if err != nil {
+				return nil, err
+			}
+		case "key":
+			raw.Key, err = decodeRawTypeSpec(decoder)
+			if err != nil {
+				return nil, err
+			}
+		case "value":
+			raw.Value, err = decodeRawTypeSpec(decoder)
+			if err != nil {
+				return nil, err
+			}
+		default:
+			return nil, fmt.Errorf("unknown type field %q", key)
+		}
+	}
+	end, err := decoder.Token()
+	if err != nil || end != json.Delim('}') {
+		return nil, fmt.Errorf("invalid type specification")
+	}
+	return raw, nil
 }
 
 func decodeType(raw rawTypeSpec, depth, maxDepth int) (TypeSpec, error) {
