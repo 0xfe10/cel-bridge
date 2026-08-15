@@ -15,6 +15,8 @@ Future<void> main() async {
       options: const CelRuntimeOptions(
         wasmUrl: '/cel_bridge.wasm',
         wasmExecUrl: '/wasm_exec.js',
+        wasmIntegrity: null,
+        wasmExecIntegrity: null,
       ),
     );
     final validation = await runtime.validate(

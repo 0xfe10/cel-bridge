@@ -165,6 +165,8 @@ Future<ArtifactBuild> buildNativeArtifact({
   };
   if (target.goos == 'ios') {
     environment.addAll(await _iosCompilerEnvironment(target));
+  } else if (target.goos == 'darwin') {
+    environment.addAll(await _macosCompilerEnvironment());
   }
   final result = await Process.run(
     'go',
@@ -219,6 +221,20 @@ Future<Map<String, String>> _iosCompilerEnvironment(
     'SDKROOT': sdkPath,
     'CGO_CFLAGS_ALLOW': r'-target|-isysroot',
     'CGO_LDFLAGS_ALLOW': r'-target|-isysroot',
+    'CGO_CFLAGS': _appendFlags(Platform.environment['CGO_CFLAGS'], flags),
+    'CGO_LDFLAGS': _appendFlags(Platform.environment['CGO_LDFLAGS'], flags),
+  };
+}
+
+Future<Map<String, String>> _macosCompilerEnvironment() async {
+  final sdkPath = await _xcrun(['--sdk', 'macosx', '--show-sdk-path']);
+  final compiler = await _xcrun(['--sdk', 'macosx', '--find', 'clang']);
+  final flags = '-isysroot $sdkPath';
+  return {
+    'CC': compiler,
+    'SDKROOT': sdkPath,
+    'CGO_CFLAGS_ALLOW': r'-isysroot',
+    'CGO_LDFLAGS_ALLOW': r'-isysroot',
     'CGO_CFLAGS': _appendFlags(Platform.environment['CGO_CFLAGS'], flags),
     'CGO_LDFLAGS': _appendFlags(Platform.environment['CGO_LDFLAGS'], flags),
   };

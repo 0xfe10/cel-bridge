@@ -300,6 +300,23 @@ Future<Map<String, String>> _compilerEnvironment(
   if (compiler != null) {
     values['CC'] = compiler;
   }
+  if (target.os == OS.macOS) {
+    final sdkPath = await _xcrun(['--sdk', 'macosx', '--show-sdk-path']);
+    values['CC'] = await _xcrun(['--sdk', 'macosx', '--find', 'clang']);
+    values['SDKROOT'] = sdkPath;
+    values['CGO_CFLAGS_ALLOW'] = r'-isysroot';
+    values['CGO_LDFLAGS_ALLOW'] = r'-isysroot';
+    final flags = '-isysroot $sdkPath';
+    values['CGO_CFLAGS'] = _appendFlags(
+      Platform.environment['CGO_CFLAGS'],
+      flags,
+    );
+    values['CGO_LDFLAGS'] = _appendFlags(
+      Platform.environment['CGO_LDFLAGS'],
+      flags,
+    );
+    return values;
+  }
   if (target.os != OS.iOS) return values;
   final sdk = target.iosSimulator ? 'iphonesimulator' : 'iphoneos';
   final sdkPath = await _xcrun(['--sdk', sdk, '--show-sdk-path']);

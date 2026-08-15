@@ -16,6 +16,8 @@ Future<void> main() async {
         options: const CelRuntimeOptions(
           wasmUrl: '/missing-cel-bridge.wasm',
           wasmExecUrl: '/wasm_exec.js',
+          wasmIntegrity: null,
+          wasmExecIntegrity: null,
         ),
       );
     } on CelBridgeException {
@@ -27,6 +29,8 @@ Future<void> main() async {
       options: const CelRuntimeOptions(
         wasmUrl: '/cel_bridge.wasm',
         wasmExecUrl: '/wasm_exec.js',
+        wasmIntegrity: null,
+        wasmExecIntegrity: null,
       ),
     );
     final value = await runtime.evaluate(

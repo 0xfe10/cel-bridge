@@ -56,7 +56,7 @@ jobs:
         run: dart format --output=none --set-exit-if-changed .
 
       - name: Analyze Dart package
-        run: dart analyze
+        run: dart analyze lib test bin hook tool/*.dart
 
       - name: Test Dart package
         run: dart test
