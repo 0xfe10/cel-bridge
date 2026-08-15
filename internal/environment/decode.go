@@ -22,8 +22,8 @@ type rawTypeSpec struct {
 func Decode(raw string, maxDepth int) (Environment, error) {
 	decoder := json.NewDecoder(strings.NewReader(raw))
 	decoder.DisallowUnknownFields()
-	var input rawEnvironment
-	if err := decoder.Decode(&input); err != nil {
+	input, err := decodeRawEnvironment(decoder)
+	if err != nil {
 		return Environment{}, fmt.Errorf("invalid environment JSON: %w", err)
 	}
 	var trailing any
@@ -55,6 +55,88 @@ func Decode(raw string, maxDepth int) (Environment, error) {
 		result.Variables[name] = typeSpec
 	}
 	return result, nil
+}
+
+func decodeRawEnvironment(decoder *json.Decoder) (rawEnvironment, error) {
+	token, err := decoder.Token()
+	if err != nil {
+		return rawEnvironment{}, err
+	}
+	if token != json.Delim('{') {
+		return rawEnvironment{}, fmt.Errorf("environment must be an object")
+	}
+	var input rawEnvironment
+	seen := make(map[string]struct{})
+	for decoder.More() {
+		keyToken, err := decoder.Token()
+		if err != nil {
+			return rawEnvironment{}, err
+		}
+		key, ok := keyToken.(string)
+		if !ok {
+			return rawEnvironment{}, fmt.Errorf("environment object key is not a string")
+		}
+		if _, exists := seen[key]; exists {
+			return rawEnvironment{}, fmt.Errorf("duplicate environment field %q", key)
+		}
+		seen[key] = struct{}{}
+		switch key {
+		case "schemaVersion":
+			if err := decoder.Decode(&input.SchemaVersion); err != nil {
+				return rawEnvironment{}, err
+			}
+		case "variables":
+			variables, err := decodeVariables(decoder)
+			if err != nil {
+				return rawEnvironment{}, err
+			}
+			input.Variables = variables
+		default:
+			return rawEnvironment{}, fmt.Errorf("unknown field %q", key)
+		}
+	}
+	end, err := decoder.Token()
+	if err != nil || end != json.Delim('}') {
+		return rawEnvironment{}, fmt.Errorf("invalid environment object")
+	}
+	return input, nil
+}
+
+func decodeVariables(decoder *json.Decoder) (map[string]rawTypeSpec, error) {
+	token, err := decoder.Token()
+	if err != nil {
+		return nil, err
+	}
+	if token == nil {
+		return nil, nil
+	}
+	if token != json.Delim('{') {
+		return nil, fmt.Errorf("variables must be an object")
+	}
+	variables := make(map[string]rawTypeSpec)
+	for decoder.More() {
+		keyToken, err := decoder.Token()
+		if err != nil {
+			return nil, err
+		}
+		name, ok := keyToken.(string)
+		if !ok {
+			return nil, fmt.Errorf("variable name is not a string")
+		}
+		if _, exists := variables[name]; exists {
+			return nil, fmt.Errorf("duplicate variable %q", name)
+		}
+		var rawType rawTypeSpec
+		if err := decoder.Decode(&rawType); err != nil {
+			return nil, err
+		}
+		variables[name] = rawType
+	}
+	end, err := decoder.Token()
+	if err != nil || end != json.Delim('}') {
+		return nil, fmt.Errorf("invalid variables object")
+	}
+	return variables, nil
 }
 
 func decodeType(raw rawTypeSpec, depth, maxDepth int) (TypeSpec, error) {

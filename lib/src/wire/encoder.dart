@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import '../cel_value.dart';
 
 final _maxCelInt = BigInt.parse('9223372036854775807');
+const _taggedValueMarker = r'$cel_bridge';
 
 String encodeEnvironment(Map<String, Object?> environment) {
   return jsonEncode(_jsonObject(environment, 'environment'));
@@ -14,16 +15,16 @@ String encodeVariables(Map<String, Object?> variables) {
 }
 
 Object? _jsonValue(Object? value) {
-  if (value is CelValue) return value.toJson();
+  if (value is CelValue) return _tag(value.toJson());
   if (value is BigInt) {
     final kind = value.isNegative || value <= _maxCelInt ? 'int' : 'uint';
-    return {'kind': kind, 'value': value.toString()};
+    return _tag({'kind': kind, 'value': value.toString()});
   }
   if (value is Uint8List) {
-    return {'kind': 'bytes', 'value': base64Encode(value)};
+    return _tag({'kind': 'bytes', 'value': base64Encode(value)});
   }
-  if (value is DateTime) return CelTimestampValue(value).toJson();
-  if (value is CelDurationValue) return value.toJson();
+  if (value is DateTime) return _tag(CelTimestampValue(value).toJson());
+  if (value is CelDurationValue) return _tag(value.toJson());
   if (value is List) return [for (final item in value) _jsonValue(item)];
   if (value is Map) {
     final result = <String, Object?>{};
@@ -39,11 +40,16 @@ Object? _jsonValue(Object? value) {
   if (value is double) {
     return value.isFinite
         ? value
-        : {'kind': 'double', 'value': _formatDouble(value)};
+        : _tag({'kind': 'double', 'value': _formatDouble(value)});
   }
   if (value is int) return value;
   throw ArgumentError('unsupported JSON value ${value.runtimeType}');
 }
+
+Map<String, Object?> _tag(Map<String, Object?> value) => {
+  _taggedValueMarker: true,
+  ...value,
+};
 
 String _formatDouble(double value) {
   if (value.isNaN) return 'NaN';

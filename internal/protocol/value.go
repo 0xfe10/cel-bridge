@@ -129,7 +129,10 @@ func decodeInput(value any, depth, maxDepth int) (any, error) {
 		}
 		return result, nil
 	case map[string]any:
-		if _, tagged := value["kind"]; tagged {
+		if marker, tagged := value[taggedValueMarker]; tagged {
+			if marker != true {
+				return nil, fmt.Errorf("tagged value marker must be true")
+			}
 			return decodeTagged(value, depth, maxDepth)
 		}
 		if len(value) > maxCollectionItems {
@@ -367,7 +370,7 @@ func encodeList(list traits.Lister, depth int) (Value, error) {
 		}
 		items[i] = item
 	}
-	return Value{Kind: "list", Items: items}, nil
+	return Value{Kind: "list", Items: &items}, nil
 }
 
 func encodeMap(mapper traits.Mapper, depth int) (Value, error) {
@@ -398,7 +401,7 @@ func encodeMap(mapper traits.Mapper, depth int) (Value, error) {
 		right, _ := json.Marshal(entries[j].Key)
 		return bytes.Compare(left, right) < 0
 	})
-	return Value{Kind: "map", Entries: entries}, nil
+	return Value{Kind: "map", Entries: &entries}, nil
 }
 
 func formatDouble(value float64) string {

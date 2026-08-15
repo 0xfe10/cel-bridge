@@ -47,7 +47,7 @@
     },
     "source": "number",
     "variables": {
-      "number": {"kind": "int", "value": "9223372036854775807"}
+      "number": {"$cel_bridge": true, "kind": "int", "value": "9223372036854775807"}
     },
     "expected": {"kind": "int", "value": "9223372036854775807"}
   },
@@ -59,7 +59,7 @@
     },
     "source": "number",
     "variables": {
-      "number": {"kind": "uint", "value": "18446744073709551615"}
+      "number": {"$cel_bridge": true, "kind": "uint", "value": "18446744073709551615"}
     },
     "expected": {"kind": "uint", "value": "18446744073709551615"}
   },
@@ -70,7 +70,7 @@
       "variables": {"payload": {"type": "bytes"}}
     },
     "source": "payload",
-    "variables": {"payload": {"kind": "bytes", "value": "SGVsbG8="}},
+    "variables": {"payload": {"$cel_bridge": true, "kind": "bytes", "value": "SGVsbG8="}},
     "expected": {"kind": "bytes", "value": "SGVsbG8="}
   },
   {
@@ -81,7 +81,7 @@
     },
     "source": "created",
     "variables": {
-      "created": {"kind": "timestamp", "value": "2026-08-15T10:00:00Z"}
+      "created": {"$cel_bridge": true, "kind": "timestamp", "value": "2026-08-15T10:00:00Z"}
     },
     "expected": {"kind": "timestamp", "value": "2026-08-15T10:00:00Z"}
   },
@@ -92,7 +92,7 @@
       "variables": {"latency": {"type": "duration"}}
     },
     "source": "latency",
-    "variables": {"latency": {"kind": "duration", "value": "1.5s"}},
+    "variables": {"latency": {"$cel_bridge": true, "kind": "duration", "value": "1.5s"}},
     "expected": {"kind": "duration", "value": "1.500000000s"}
   },
   {
@@ -111,6 +111,32 @@
         {"kind": "string", "value": "a"},
         {"kind": "string", "value": "b"}
       ]
+    }
+  },
+  {
+    "name": "empty list value",
+    "environment": {
+      "schemaVersion": 1,
+      "variables": {}
+    },
+    "source": "[]",
+    "variables": {},
+    "expected": {
+      "kind": "list",
+      "items": []
+    }
+  },
+  {
+    "name": "empty map value",
+    "environment": {
+      "schemaVersion": 1,
+      "variables": {}
+    },
+    "source": "{}",
+    "variables": {},
+    "expected": {
+      "kind": "map",
+      "entries": []
     }
   },
   {

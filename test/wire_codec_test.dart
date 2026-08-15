@@ -20,11 +20,28 @@ void main() {
             )
             as Map<String, Object?>;
 
-    expect(encoded['small'], {'kind': 'int', 'value': '4'});
-    expect(encoded['large'], {'kind': 'uint', 'value': '18446744073709551615'});
-    expect(encoded['bytes'], {'kind': 'bytes', 'value': 'SGk='});
-    expect(encoded['notANumber'], {'kind': 'double', 'value': 'NaN'});
+    expect(encoded['small'], {
+      r'$cel_bridge': true,
+      'kind': 'int',
+      'value': '4',
+    });
+    expect(encoded['large'], {
+      r'$cel_bridge': true,
+      'kind': 'uint',
+      'value': '18446744073709551615',
+    });
+    expect(encoded['bytes'], {
+      r'$cel_bridge': true,
+      'kind': 'bytes',
+      'value': 'SGk=',
+    });
+    expect(encoded['notANumber'], {
+      r'$cel_bridge': true,
+      'kind': 'double',
+      'value': 'NaN',
+    });
     expect((encoded['nested'] as List).single, {
+      r'$cel_bridge': true,
       'kind': 'timestamp',
       'value': '2026-08-15T00:00:00Z',
     });

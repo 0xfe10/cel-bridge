@@ -20,9 +20,9 @@ func TestDecodeVariablesPreservesIntegerTypes(t *testing.T) {
 
 func TestDecodeVariablesTaggedValues(t *testing.T) {
 	variables, err := DecodeVariables(`{
-      "bytes": {"kind":"bytes","value":"SGVsbG8="},
-      "timestamp": {"kind":"timestamp","value":"2026-08-15T10:00:00Z"},
-      "duration": {"kind":"duration","value":"1.5s"}
+	      "bytes": {"$cel_bridge":true,"kind":"bytes","value":"SGVsbG8="},
+	      "timestamp": {"$cel_bridge":true,"kind":"timestamp","value":"2026-08-15T10:00:00Z"},
+	      "duration": {"$cel_bridge":true,"kind":"duration","value":"1.5s"}
     }`, 1024, 8)
 	if err != nil {
 		t.Fatal(err)
@@ -51,15 +51,30 @@ func TestDecodeVariablesRejectsDuplicateKeys(t *testing.T) {
 }
 
 func TestDecodeVariablesRejectsInvalidTaggedValue(t *testing.T) {
-	if _, err := DecodeVariables(`{"age":{"kind":"int","value":true}}`, 1024, 8); err == nil {
+	if _, err := DecodeVariables(`{"age":{"$cel_bridge":true,"kind":"int","value":true}}`, 1024, 8); err == nil {
 		t.Fatal("invalid tagged value was accepted")
+	}
+}
+
+func TestDecodeVariablesAllowsKindInOrdinaryMaps(t *testing.T) {
+	variables, err := DecodeVariables(
+		`{"user":{"kind":"admin","value":"active"}}`,
+		1024,
+		8,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	user, ok := variables["user"].(map[string]any)
+	if !ok || user["kind"] != "admin" || user["value"] != "active" {
+		t.Fatalf("ordinary map was not preserved: %#v", variables["user"])
 	}
 }
 
 func TestDecodeVariablesSupportsTaggedMapKeys(t *testing.T) {
 	variables, err := DecodeVariables(`{
-      "values": {"kind":"map","entries":[
-        {"key":{"kind":"int","value":"1"},"value":"one"}
+	      "values": {"$cel_bridge":true,"kind":"map","entries":[
+	        {"key":{"$cel_bridge":true,"kind":"int","value":"1"},"value":"one"}
       ]}
     }`, 1024, 8)
 	if err != nil {

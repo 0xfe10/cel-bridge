@@ -25,6 +25,7 @@ func TestDecodeRejectsInvalidEnvironment(t *testing.T) {
 		`{"schemaVersion":1,"variables":{"1age":{"type":"int"}}}`,
 		`{"schemaVersion":1,"variables":{"items":{"type":"list"}}}`,
 		`{"schemaVersion":1,"variables":{"value":{"type":"unknown"}}}`,
+		`{"schemaVersion":1,"variables":{"age":{"type":"int"},"age":{"type":"string"}}}`,
 	}
 	for _, input := range cases {
 		if _, err := Decode(input, 16); err == nil {

@@ -3,6 +3,7 @@ package protocol
 import "encoding/json"
 
 const Version = 1
+const taggedValueMarker = "$cel_bridge"
 
 type Response struct {
 	ProtocolVersion int          `json:"protocolVersion"`
@@ -38,10 +39,10 @@ type RuntimeInfo struct {
 }
 
 type Value struct {
-	Kind    string     `json:"kind"`
-	Value   any        `json:"value,omitempty"`
-	Items   []Value    `json:"items,omitempty"`
-	Entries []MapEntry `json:"entries,omitempty"`
+	Kind    string      `json:"kind"`
+	Value   any         `json:"value,omitempty"`
+	Items   *[]Value    `json:"items,omitempty"`
+	Entries *[]MapEntry `json:"entries,omitempty"`
 }
 
 type MapEntry struct {
