@@ -24,7 +24,7 @@ Pod::Spec.new do |s|
   }
   s.user_target_xcconfig = {
     'OTHER_LDFLAGS' =>
-      '$(inherited) -force_load "$(PODS_CONFIGURATION_BUILD_DIR)/cel_bridge/libcel_bridge.a"',
+      '$(inherited) -L"$(PODS_CONFIGURATION_BUILD_DIR)/cel_bridge" -lcel_bridge',
   }
 
   s.script_phase = {
