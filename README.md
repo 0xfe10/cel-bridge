@@ -152,8 +152,13 @@ The same command accepts `android-arm64-v8a`, `ios-arm64`, `macos-arm64`, and
 `artifact_directory` at a directory containing a target subdirectory and the
 native library; keep the configured directory URI terminated with `/`.
 
-iOS uses a static archive and is linked at application build time. It does not
-download executable native code at runtime.
+iOS uses a static archive and is linked at application build time. Flutter's
+current iOS native-assets input requests dynamic libraries, which Go does not
+support for iOS, so the package uses its iOS plugin fallback there: the same C
+ABI is called through a MethodChannel and the version-pinned XCFramework is
+linked by CocoaPods. The CocoaPods build step verifies the archive against the
+release `checksums.txt`; it never downloads executable code at runtime. CI can
+use a locally built framework with `CEL_BRIDGE_IOS_XCFRAMEWORK_PATH`.
 
 ## Web and self-hosted Wasm
 

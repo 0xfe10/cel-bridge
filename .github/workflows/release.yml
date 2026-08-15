@@ -245,12 +245,16 @@ jobs:
           git archive --format=tar.gz \
             --prefix="cel-bridge-$version/" "$GITHUB_SHA" \
             -o "build/release/cel-bridge-source-v$version.tar.gz"
-          for file in build/release/cel_bridge.wasm \
-            build/release/wasm_exec.js \
-            "build/release/cel-bridge-source-v$version.tar.gz"; do
-            (cd build/release && sha256sum "$(basename "$file")") \
+          : > build/release/checksums.txt
+          for file in build/release/*; do
+            [[ -f "$file" ]] || continue
+            name="$(basename "$file")"
+            [[ "$name" != "checksums.txt" ]] || continue
+            [[ "$name" != cel-bridge-manifest-*.json ]] || continue
+            (cd build/release && sha256sum "$name") \
               >> build/release/checksums.txt
           done
+          sort -k2 build/release/checksums.txt -o build/release/checksums.txt
 
       - name: Create Draft Release
         uses: softprops/action-gh-release@72f2c25fcb47643c292f7107632f7a47c1df5cd8

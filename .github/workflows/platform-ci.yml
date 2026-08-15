@@ -182,34 +182,7 @@ jobs:
       - name: Get Dart dependencies
         run: dart pub get
 
-      - name: Build Flutter macOS example
-        working-directory: example/flutter_app
-        run: |
-          flutter pub get
-          flutter build macos --debug
-
-      - name: Build Flutter iOS simulator example
-        working-directory: example/flutter_app
-        run: |
-          export CC="$(xcrun --sdk iphonesimulator --find clang)"
-          flutter build ios --simulator --no-codesign
-
-      - name: Build macOS artifact
-        run: |
-          env -u CC dart run tool/build_artifact.dart \
-            --target macos-arm64 --output build/artifacts
-          env -u CC dart run tool/build_artifact.dart \
-            --target macos-x86_64 --output build/artifacts
-          mkdir -p build/artifacts/macos-universal
-          lipo -create \
-            build/artifacts/macos-arm64/libcel_bridge.dylib \
-            build/artifacts/macos-x86_64/libcel_bridge.dylib \
-            -output build/artifacts/macos-universal/libcel_bridge.dylib
-          tar -czf \
-            build/artifacts/cel-bridge-macos-universal-v$(cat VERSION).tar.gz \
-            -C build/artifacts/macos-universal libcel_bridge.dylib
-
-      - name: Build iOS artifact
+      - name: Build iOS static XCFramework
         run: |
           CC="$(xcrun --sdk iphoneos --find clang)" \
             dart run tool/build_artifact.dart \
@@ -234,6 +207,33 @@ jobs:
           ditto -c -k --sequesterRsrc --keepParent \
             build/artifacts/libcel_bridge.xcframework \
             build/artifacts/cel-bridge-ios-xcframework-v$(cat VERSION).zip
+
+      - name: Build Flutter macOS example
+        working-directory: example/flutter_app
+        run: |
+          flutter pub get
+          flutter build macos --debug
+
+      - name: Build Flutter iOS simulator example
+        working-directory: example/flutter_app
+        run: |
+          export CEL_BRIDGE_IOS_XCFRAMEWORK_PATH="$GITHUB_WORKSPACE/build/artifacts/libcel_bridge.xcframework"
+          flutter build ios --simulator --no-codesign
+
+      - name: Build macOS artifact
+        run: |
+          env -u CC dart run tool/build_artifact.dart \
+            --target macos-arm64 --output build/artifacts
+          env -u CC dart run tool/build_artifact.dart \
+            --target macos-x86_64 --output build/artifacts
+          mkdir -p build/artifacts/macos-universal
+          lipo -create \
+            build/artifacts/macos-arm64/libcel_bridge.dylib \
+            build/artifacts/macos-x86_64/libcel_bridge.dylib \
+            -output build/artifacts/macos-universal/libcel_bridge.dylib
+          tar -czf \
+            build/artifacts/cel-bridge-macos-universal-v$(cat VERSION).tar.gz \
+            -C build/artifacts/macos-universal libcel_bridge.dylib
 
       - name: Generate and verify Apple manifest
         run: |

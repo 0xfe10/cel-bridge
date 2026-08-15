@@ -34,6 +34,11 @@ Future<void> main(List<String> args) async {
     final versionFile = File.fromUri(input.packageRoot.resolve('VERSION'));
     output.dependencies.add(versionFile.uri);
 
+    // Flutter's iOS target currently requests dynamic assets, while Go only
+    // supports c-archive for iOS. The iOS plugin links the static XCFramework
+    // at app build time, so do not advertise an unusable dynamic asset.
+    if (code.targetOS == OS.iOS && !target.staticLinking) return;
+
     if (sourceBuild) {
       await _buildFromSource(input, target, assetPath, libraryName);
       output.dependencies.add(input.packageRoot);

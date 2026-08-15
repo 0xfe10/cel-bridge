@@ -12,6 +12,8 @@ dependencies:
   code_assets: ^1.2.1
   crypto: ^3.0.7
   ffi: ^2.2.0
+  flutter:
+    sdk: flutter
   hooks: ^2.0.2
   web: ^1.1.1
 
@@ -23,3 +25,9 @@ hooks:
   user_defines:
     cel_bridge:
       build_from_source: true
+
+flutter:
+  plugin:
+    platforms:
+      ios:
+        pluginClass: CelBridgePlugin
