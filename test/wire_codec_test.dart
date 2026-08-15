@@ -89,6 +89,27 @@ void main() {
     );
   });
 
+  test('rejects cyclic or overly deep input values', () {
+    final value = <Object?>[];
+    var current = value;
+    for (var i = 0; i < 33; i++) {
+      final next = <Object?>[];
+      current.add(next);
+      current = next;
+    }
+    expect(
+      () => encodeVariables({'value': value}),
+      throwsA(isA<ArgumentError>()),
+    );
+
+    final cyclic = <Object?>[];
+    cyclic.add(cyclic);
+    expect(
+      () => encodeVariables({'value': cyclic}),
+      throwsA(isA<ArgumentError>()),
+    );
+  });
+
   test('decodes successful validation and evaluation responses', () {
     const validation =
         '{"protocolVersion":1,"ok":true,"result":{"valid":false,"issues":['

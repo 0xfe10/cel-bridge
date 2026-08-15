@@ -62,6 +62,16 @@ func TestDecodeVariablesRejectsDeepJSONBeforeDecoding(t *testing.T) {
 	}
 }
 
+func TestDecodeVariablesRejectsDuplicateTaggedMapKeys(t *testing.T) {
+	const raw = `{"values":{"$cel_bridge":true,"kind":"map","entries":[
+    {"key":{"$cel_bridge":true,"kind":"string","value":"same"},"value":1},
+    {"key":{"$cel_bridge":true,"kind":"string","value":"same"},"value":2}
+  ]}}`
+	if _, err := DecodeVariables(raw, 1024, 8); err == nil {
+		t.Fatal("duplicate tagged map key was accepted")
+	}
+}
+
 func TestDecodeVariablesAllowsKindInOrdinaryMaps(t *testing.T) {
 	variables, err := DecodeVariables(
 		`{"user":{"kind":"admin","value":"active"}}`,

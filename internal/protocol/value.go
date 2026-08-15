@@ -299,6 +299,9 @@ func decodeTagged(value map[string]any, depth, maxDepth int) (any, error) {
 			if err != nil {
 				return nil, err
 			}
+			if _, exists := result[decodedKey]; exists {
+				return nil, fmt.Errorf("tagged map contains duplicate key")
+			}
 			result[decodedKey] = decodedValue
 		}
 		return result, nil
