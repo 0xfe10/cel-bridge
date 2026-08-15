@@ -26,6 +26,7 @@ func TestDecodeRejectsInvalidEnvironment(t *testing.T) {
 		`{"schemaVersion":1,"variables":{"items":{"type":"list"}}}`,
 		`{"schemaVersion":1,"variables":{"value":{"type":"unknown"}}}`,
 		`{"schemaVersion":1,"variables":{"value":null}}`,
+		`{"schemaVersion":1,"variables":{"values":{"type":"map","key":{"type":"double"},"value":{"type":"string"}}}}`,
 		`{"schemaVersion":1,"variables":{"age":{"type":"int"},"age":{"type":"string"}}}`,
 		`{"schemaVersion":1,"variables":{"age":{"type":"int","type":"string"}}}`,
 		`{"schemaVersion":1,"variables":{"items":{"type":"list","element":{"type":"int","type":"string"}}}}`,

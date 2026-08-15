@@ -1,6 +1,7 @@
 package protocol
 
 import (
+	"strings"
 	"testing"
 	"time"
 )
@@ -62,6 +63,19 @@ func TestDecodeVariablesRejectsDeepJSONBeforeDecoding(t *testing.T) {
 	}
 }
 
+func TestDecodeVariablesHonorsDepthBoundary(t *testing.T) {
+	nested := func(levels int) string {
+		return `{"value":` + strings.Repeat("[", levels) +
+			strings.Repeat("]", levels) + `}`
+	}
+	if _, err := DecodeVariables(nested(32), 1024, 32); err != nil {
+		t.Fatalf("maximum value depth was rejected: %v", err)
+	}
+	if _, err := DecodeVariables(nested(33), 1024, 32); err == nil {
+		t.Fatal("value depth above the maximum was accepted")
+	}
+}
+
 func TestDecodeVariablesRejectsDuplicateTaggedMapKeys(t *testing.T) {
 	const raw = `{"values":{"$cel_bridge":true,"kind":"map","entries":[
     {"key":{"$cel_bridge":true,"kind":"string","value":"same"},"value":1},
@@ -69,6 +83,15 @@ func TestDecodeVariablesRejectsDuplicateTaggedMapKeys(t *testing.T) {
   ]}}`
 	if _, err := DecodeVariables(raw, 1024, 8); err == nil {
 		t.Fatal("duplicate tagged map key was accepted")
+	}
+}
+
+func TestDecodeVariablesRejectsUnsupportedTaggedMapKeys(t *testing.T) {
+	const raw = `{"values":{"$cel_bridge":true,"kind":"map","entries":[
+    {"key":{"$cel_bridge":true,"kind":"double","value":"NaN"},"value":true}
+  ]}}`
+	if _, err := DecodeVariables(raw, 1024, 8); err == nil {
+		t.Fatal("unsupported tagged map key was accepted")
 	}
 }
 

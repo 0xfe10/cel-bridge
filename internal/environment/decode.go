@@ -243,7 +243,8 @@ func decodeType(raw rawTypeSpec, depth, maxDepth int) (TypeSpec, error) {
 		if err != nil {
 			return TypeSpec{}, err
 		}
-		if key.Name == "list" || key.Name == "map" || key.Name == "null" {
+		if key.Name != "bool" && key.Name != "int" &&
+			key.Name != "uint" && key.Name != "string" {
 			return TypeSpec{}, fmt.Errorf("map key type %q is not supported", key.Name)
 		}
 		spec.Key, spec.Value = &key, &value

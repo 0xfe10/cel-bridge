@@ -90,15 +90,20 @@ void main() {
   });
 
   test('rejects cyclic or overly deep input values', () {
-    final value = <Object?>[];
-    var current = value;
-    for (var i = 0; i < 33; i++) {
-      final next = <Object?>[];
-      current.add(next);
-      current = next;
+    List<Object?> nested(int levels) {
+      final value = <Object?>[];
+      var current = value;
+      for (var i = 0; i < levels; i++) {
+        final next = <Object?>[];
+        current.add(next);
+        current = next;
+      }
+      return value;
     }
+
+    expect(() => encodeVariables({'value': nested(31)}), returnsNormally);
     expect(
-      () => encodeVariables({'value': value}),
+      () => encodeVariables({'value': nested(32)}),
       throwsA(isA<ArgumentError>()),
     );
 

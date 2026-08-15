@@ -12,7 +12,7 @@ String encodeEnvironment(Map<String, Object?> environment) {
 }
 
 String encodeVariables(Map<String, Object?> variables) {
-  return jsonEncode(_jsonObject(variables, 'variables'));
+  return jsonEncode(_jsonObject(variables, 'variables', valueDepth: 1));
 }
 
 Object? _jsonValue(Object? value, [int depth = 0]) {
@@ -101,10 +101,15 @@ String _formatDouble(double value) {
   return value.toString();
 }
 
-Map<String, Object?> _jsonObject(Map<String, Object?> value, String name) {
+Map<String, Object?> _jsonObject(
+  Map<String, Object?> value,
+  String name, {
+  int valueDepth = 0,
+}) {
   try {
     return {
-      for (final entry in value.entries) entry.key: _jsonValue(entry.value),
+      for (final entry in value.entries)
+        entry.key: _jsonValue(entry.value, valueDepth),
     };
   } on ArgumentError catch (error) {
     throw ArgumentError('$name: $error');

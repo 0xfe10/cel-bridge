@@ -40,13 +40,6 @@ const artifactTargets = <ArtifactTarget>[
     staticLinking: false,
   ),
   ArtifactTarget(
-    name: 'linux-aarch64',
-    goos: 'linux',
-    goarch: 'arm64',
-    libraryName: 'libcel_bridge.so',
-    staticLinking: false,
-  ),
-  ArtifactTarget(
     name: 'macos-x86_64',
     goos: 'darwin',
     goarch: 'amd64',
@@ -64,13 +57,6 @@ const artifactTargets = <ArtifactTarget>[
     name: 'windows-x86_64',
     goos: 'windows',
     goarch: 'amd64',
-    libraryName: 'cel_bridge.dll',
-    staticLinking: false,
-  ),
-  ArtifactTarget(
-    name: 'windows-arm64',
-    goos: 'windows',
-    goarch: 'arm64',
     libraryName: 'cel_bridge.dll',
     staticLinking: false,
   ),

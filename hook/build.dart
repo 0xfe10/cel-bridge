@@ -57,6 +57,11 @@ bool _asBool(Object? value) {
 }
 
 _Target _target(OS os, Architecture architecture, {bool iosSimulator = false}) {
+  if ((os == OS.linux || os == OS.windows) && architecture.name == 'arm64') {
+    throw UnsupportedError(
+      'arm64 ${os.name} artifacts are not included in v1 release assets',
+    );
+  }
   final arch = switch (architecture.name) {
     'arm' => 'arm',
     'arm64' => 'arm64',

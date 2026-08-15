@@ -292,8 +292,9 @@ func decodeTagged(value map[string]any, depth, maxDepth int) (any, error) {
 				return nil, err
 			}
 			switch decodedKey.(type) {
-			case nil, []byte, []any, map[string]any, map[any]any:
-				return nil, fmt.Errorf("tagged map key is not comparable")
+			case bool, int64, uint64, string:
+			default:
+				return nil, fmt.Errorf("tagged map key type is not supported")
 			}
 			decodedValue, err := decodeInput(entryValue, depth+1, maxDepth)
 			if err != nil {

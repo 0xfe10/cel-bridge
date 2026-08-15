@@ -76,11 +76,9 @@ Future<ArtifactTarget> _hostTarget() async {
   if (lines.length != 2) throw StateError('could not parse Go host target');
   final name = switch ('${lines[0]}-${lines[1]}') {
     'linux-amd64' => 'linux-x86_64',
-    'linux-arm64' => 'linux-aarch64',
     'darwin-amd64' => 'macos-x86_64',
     'darwin-arm64' => 'macos-arm64',
     'windows-amd64' => 'windows-x86_64',
-    'windows-arm64' => 'windows-arm64',
     final value => throw StateError('unsupported Go host target $value'),
   };
   return ArtifactTarget.parse(name);
