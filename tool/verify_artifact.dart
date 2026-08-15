@@ -30,6 +30,8 @@ Future<void> main(List<String> args) async {
     }
     for (final item in artifacts) {
       if (item is! Map ||
+          item['target'] is! String ||
+          item['architecture'] is! String ||
           item['file'] is! String ||
           item['sha256'] is! String) {
         throw StateError('manifest contains an invalid artifact entry');

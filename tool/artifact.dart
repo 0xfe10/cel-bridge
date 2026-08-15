@@ -293,6 +293,9 @@ Future<Map<String, Object?>> manifest({
     if (match == null || match.group(2) != version) continue;
     entries.add({
       'target': match.group(1)!,
+      'architecture': match
+          .group(1)!
+          .substring(match.group(1)!.indexOf('-') + 1),
       'file': name,
       'sha256': await sha256File(file),
       'size': await file.length(),
