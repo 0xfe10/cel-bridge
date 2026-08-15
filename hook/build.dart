@@ -73,10 +73,31 @@ _Target _target(OS os, Architecture architecture) {
     os: os,
     goos: goos,
     goarch: arch,
-    name: '${os.name}-$arch',
+    name: _targetName(os, architecture),
     staticLinking: os == OS.iOS,
   );
 }
+
+String _targetName(OS os, Architecture architecture) => switch (os) {
+  OS.android => switch (architecture.name) {
+    'arm64' => 'android-arm64-v8a',
+    'arm' => 'android-armeabi-v7a',
+    'x64' => 'android-x86_64',
+    final value => '${os.name}-$value',
+  },
+  OS.iOS => 'ios-${architecture.name == 'x64' ? 'x86_64' : architecture.name}',
+  OS.linux =>
+    'linux-${architecture.name == 'x64'
+        ? 'x86_64'
+        : architecture.name == 'arm64'
+        ? 'aarch64'
+        : architecture.name}',
+  OS.macOS =>
+    'macos-${architecture.name == 'x64' ? 'x86_64' : architecture.name}',
+  OS.windows =>
+    'windows-${architecture.name == 'x64' ? 'x86_64' : architecture.name}',
+  final value => '${value.name}-${architecture.name}',
+};
 
 String _libraryName(OS os, bool staticLinking) {
   if (staticLinking) return 'libcel_bridge.a';
@@ -99,14 +120,29 @@ Future<void> _downloadArtifact(
   );
   final localDirectory = input.userDefines.path('artifact_directory');
   if (localDirectory != null) {
-    output.dependencies.add(localDirectory);
-    final localFile = File.fromUri(
-      Directory.fromUri(localDirectory).uri.resolve(libraryName),
-    );
-    if (!localFile.existsSync()) {
-      throw StateError('local artifact directory has no $libraryName');
+    if (await _copyLocalArtifact(
+      output,
+      localDirectory,
+      target,
+      libraryName,
+      assetPath,
+    )) {
+      return;
     }
-    await localFile.copy(assetPath.toFilePath());
+    throw StateError(
+      'local artifact directory has no $libraryName for ${target.name}',
+    );
+  }
+  final cacheDirectory = input.packageRoot.resolve(
+    '.dart_tool/cel_bridge/artifacts/$_runtimeVersion/${target.name}/',
+  );
+  if (await _copyLocalArtifact(
+    output,
+    cacheDirectory,
+    target,
+    libraryName,
+    assetPath,
+  )) {
     return;
   }
   final manifest = await _getJson(manifestUri);
@@ -148,6 +184,24 @@ Future<void> _downloadArtifact(
   await archiveFile.writeAsBytes(bytes, flush: true);
   final library = _extractLibrary(bytes, file, libraryName);
   await File.fromUri(assetPath).writeAsBytes(library, flush: true);
+}
+
+Future<bool> _copyLocalArtifact(
+  BuildOutputBuilder output,
+  Uri directory,
+  _Target target,
+  String libraryName,
+  Uri assetPath,
+) async {
+  final candidates = <Uri>[directory, directory.resolve('${target.name}/')];
+  for (final candidate in candidates) {
+    final file = File.fromUri(candidate.resolve(libraryName));
+    if (!file.existsSync()) continue;
+    output.dependencies.add(candidate);
+    await file.copy(assetPath.toFilePath());
+    return true;
+  }
+  return false;
 }
 
 Future<void> _buildFromSource(
