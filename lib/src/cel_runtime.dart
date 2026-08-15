@@ -15,7 +15,22 @@ final class CelRuntime {
   static Future<CelRuntime> initialize({
     CelRuntimeOptions options = const CelRuntimeOptions(),
   }) {
-    return _initialization ??= _initialize(options);
+    final initialization = _initialization;
+    if (initialization != null) return initialization;
+    final future = _initializeWithRetry(options);
+    _initialization = future;
+    return future;
+  }
+
+  static Future<CelRuntime> _initializeWithRetry(
+    CelRuntimeOptions options,
+  ) async {
+    try {
+      return await _initialize(options);
+    } catch (error, stackTrace) {
+      _initialization = null;
+      Error.throwWithStackTrace(error, stackTrace);
+    }
   }
 
   static Future<CelRuntime> _initialize(CelRuntimeOptions options) async {

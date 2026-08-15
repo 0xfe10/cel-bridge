@@ -11,7 +11,20 @@ Future<void>? _loaded;
 final Map<String, Future<void>> _scripts = {};
 
 Future<void> loadGoWasm(CelRuntimeOptions options) {
-  return _loaded ??= _loadGoWasm(options);
+  final loaded = _loaded;
+  if (loaded != null) return loaded;
+  final future = _loadWithRetry(options);
+  _loaded = future;
+  return future;
+}
+
+Future<void> _loadWithRetry(CelRuntimeOptions options) async {
+  try {
+    await _loadGoWasm(options);
+  } catch (error, stackTrace) {
+    _loaded = null;
+    Error.throwWithStackTrace(error, stackTrace);
+  }
 }
 
 Future<void> _loadGoWasm(CelRuntimeOptions options) async {
@@ -49,7 +62,24 @@ Future<void> _loadScript(String url, String? integrity) {
     return Future<void>.value();
   }
   final key = '$url\n$integrity';
-  return _scripts[key] ??= _appendScript(url, integrity);
+  final script = _scripts[key];
+  if (script != null) return script;
+  final future = _loadScriptAndRetry(key, url, integrity);
+  _scripts[key] = future;
+  return future;
+}
+
+Future<void> _loadScriptAndRetry(
+  String key,
+  String url,
+  String? integrity,
+) async {
+  try {
+    await _appendScript(url, integrity);
+  } catch (error, stackTrace) {
+    _scripts.remove(key);
+    Error.throwWithStackTrace(error, stackTrace);
+  }
 }
 
 Future<void> _appendScript(String url, String? integrity) {
