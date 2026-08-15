@@ -22,9 +22,7 @@ Object? _jsonValue(Object? value) {
   if (value is Uint8List) {
     return {'kind': 'bytes', 'value': base64Encode(value)};
   }
-  if (value is DateTime) {
-    return {'kind': 'timestamp', 'value': value.toUtc().toIso8601String()};
-  }
+  if (value is DateTime) return CelTimestampValue(value).toJson();
   if (value is CelDurationValue) return value.toJson();
   if (value is List) return [for (final item in value) _jsonValue(item)];
   if (value is Map) {

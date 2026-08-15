@@ -125,7 +125,7 @@ final class CelTimestampValue extends CelValue {
   @override
   Map<String, Object?> toJson() => {
     'kind': 'timestamp',
-    'value': value.toIso8601String(),
+    'value': _formatTimestamp(value),
   };
 }
 
@@ -240,4 +240,16 @@ String _formatDuration(int seconds, int nanoseconds) {
   if (nanoseconds == 0) return '${negative ? '-' : ''}${wholeSeconds}s';
   return '${negative ? '-' : ''}$wholeSeconds.$fraction'
       's';
+}
+
+String _formatTimestamp(DateTime value) {
+  final iso = value.toUtc().toIso8601String();
+  final dot = iso.indexOf('.');
+  if (dot == -1) return iso;
+  final suffix = iso.endsWith('Z') ? 'Z' : '';
+  final fractionEnd = suffix.isEmpty ? iso.length : iso.length - 1;
+  final fraction = iso
+      .substring(dot + 1, fractionEnd)
+      .replaceFirst(RegExp(r'0+$'), '');
+  return '${iso.substring(0, dot)}${fraction.isEmpty ? '' : '.$fraction'}$suffix';
 }

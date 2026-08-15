@@ -26,7 +26,7 @@ void main() {
     expect(encoded['notANumber'], {'kind': 'double', 'value': 'NaN'});
     expect((encoded['nested'] as List).single, {
       'kind': 'timestamp',
-      'value': '2026-08-15T00:00:00.000Z',
+      'value': '2026-08-15T00:00:00Z',
     });
   });
 
