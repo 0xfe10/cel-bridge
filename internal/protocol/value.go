@@ -30,7 +30,7 @@ func DecodeVariables(raw string, maxBytes, maxDepth int) (map[string]any, error)
 	}
 	decoder := json.NewDecoder(strings.NewReader(raw))
 	decoder.UseNumber()
-	decoded, err := decodeJSON(decoder)
+	decoded, err := decodeJSON(decoder, 0, maxDepth)
 	if err != nil {
 		return nil, fmt.Errorf("invalid variables JSON: %w", err)
 	}
@@ -51,7 +51,10 @@ func DecodeVariables(raw string, maxBytes, maxDepth int) (map[string]any, error)
 	return value.(map[string]any), nil
 }
 
-func decodeJSON(decoder *json.Decoder) (any, error) {
+func decodeJSON(decoder *json.Decoder, depth, maxDepth int) (any, error) {
+	if depth > maxDepth {
+		return nil, fmt.Errorf("variables nesting exceeds %d levels", maxDepth)
+	}
 	token, err := decoder.Token()
 	if err != nil {
 		return nil, err
@@ -73,7 +76,7 @@ func decodeJSON(decoder *json.Decoder) (any, error) {
 				if _, exists := result[key]; exists {
 					return nil, fmt.Errorf("duplicate JSON object key %q", key)
 				}
-				value, err := decodeJSON(decoder)
+				value, err := decodeJSON(decoder, depth+1, maxDepth)
 				if err != nil {
 					return nil, err
 				}
@@ -87,7 +90,7 @@ func decodeJSON(decoder *json.Decoder) (any, error) {
 		case '[':
 			result := make([]any, 0)
 			for decoder.More() {
-				value, err := decodeJSON(decoder)
+				value, err := decodeJSON(decoder, depth+1, maxDepth)
 				if err != nil {
 					return nil, err
 				}

@@ -22,7 +22,7 @@ type rawTypeSpec struct {
 func Decode(raw string, maxDepth int) (Environment, error) {
 	decoder := json.NewDecoder(strings.NewReader(raw))
 	decoder.DisallowUnknownFields()
-	input, err := decodeRawEnvironment(decoder)
+	input, err := decodeRawEnvironment(decoder, maxDepth)
 	if err != nil {
 		return Environment{}, fmt.Errorf("invalid environment JSON: %w", err)
 	}
@@ -57,7 +57,7 @@ func Decode(raw string, maxDepth int) (Environment, error) {
 	return result, nil
 }
 
-func decodeRawEnvironment(decoder *json.Decoder) (rawEnvironment, error) {
+func decodeRawEnvironment(decoder *json.Decoder, maxDepth int) (rawEnvironment, error) {
 	token, err := decoder.Token()
 	if err != nil {
 		return rawEnvironment{}, err
@@ -86,7 +86,7 @@ func decodeRawEnvironment(decoder *json.Decoder) (rawEnvironment, error) {
 				return rawEnvironment{}, err
 			}
 		case "variables":
-			variables, err := decodeVariables(decoder)
+			variables, err := decodeVariables(decoder, maxDepth)
 			if err != nil {
 				return rawEnvironment{}, err
 			}
@@ -102,7 +102,10 @@ func decodeRawEnvironment(decoder *json.Decoder) (rawEnvironment, error) {
 	return input, nil
 }
 
-func decodeVariables(decoder *json.Decoder) (map[string]rawTypeSpec, error) {
+func decodeVariables(
+	decoder *json.Decoder,
+	maxDepth int,
+) (map[string]rawTypeSpec, error) {
 	token, err := decoder.Token()
 	if err != nil {
 		return nil, err
@@ -126,7 +129,7 @@ func decodeVariables(decoder *json.Decoder) (map[string]rawTypeSpec, error) {
 		if _, exists := variables[name]; exists {
 			return nil, fmt.Errorf("duplicate variable %q", name)
 		}
-		rawType, err := decodeRawTypeSpec(decoder)
+		rawType, err := decodeRawTypeSpec(decoder, 1, maxDepth)
 		if err != nil {
 			return nil, err
 		}
@@ -143,7 +146,13 @@ func decodeVariables(decoder *json.Decoder) (map[string]rawTypeSpec, error) {
 	return variables, nil
 }
 
-func decodeRawTypeSpec(decoder *json.Decoder) (*rawTypeSpec, error) {
+func decodeRawTypeSpec(
+	decoder *json.Decoder,
+	depth, maxDepth int,
+) (*rawTypeSpec, error) {
+	if depth > maxDepth {
+		return nil, fmt.Errorf("type nesting exceeds %d levels", maxDepth)
+	}
 	token, err := decoder.Token()
 	if err != nil {
 		return nil, err
@@ -175,17 +184,17 @@ func decodeRawTypeSpec(decoder *json.Decoder) (*rawTypeSpec, error) {
 				return nil, err
 			}
 		case "element":
-			raw.Element, err = decodeRawTypeSpec(decoder)
+			raw.Element, err = decodeRawTypeSpec(decoder, depth+1, maxDepth)
 			if err != nil {
 				return nil, err
 			}
 		case "key":
-			raw.Key, err = decodeRawTypeSpec(decoder)
+			raw.Key, err = decodeRawTypeSpec(decoder, depth+1, maxDepth)
 			if err != nil {
 				return nil, err
 			}
 		case "value":
-			raw.Value, err = decodeRawTypeSpec(decoder)
+			raw.Value, err = decodeRawTypeSpec(decoder, depth+1, maxDepth)
 			if err != nil {
 				return nil, err
 			}

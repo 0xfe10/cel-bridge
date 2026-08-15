@@ -56,6 +56,12 @@ func TestDecodeVariablesRejectsInvalidTaggedValue(t *testing.T) {
 	}
 }
 
+func TestDecodeVariablesRejectsDeepJSONBeforeDecoding(t *testing.T) {
+	if _, err := DecodeVariables(`{"value":[[[1]]]}`, 1024, 2); err == nil {
+		t.Fatal("deep variables JSON was accepted")
+	}
+}
+
 func TestDecodeVariablesAllowsKindInOrdinaryMaps(t *testing.T) {
 	variables, err := DecodeVariables(
 		`{"user":{"kind":"admin","value":"active"}}`,

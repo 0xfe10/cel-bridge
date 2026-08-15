@@ -319,6 +319,9 @@ jobs:
               *ios-xcframework*)
                 grep -Eq '(^|/)libcel_bridge\.a$' <<<"$listing"
                 ;;
+              *ios-*)
+                grep -Eq '(^|/)libcel_bridge\.a$' <<<"$listing"
+                ;;
               *windows-*)
                 grep -Eq '(^|/)cel_bridge\.dll$' <<<"$listing"
                 ;;

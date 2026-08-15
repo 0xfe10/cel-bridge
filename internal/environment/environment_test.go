@@ -36,3 +36,10 @@ func TestDecodeRejectsInvalidEnvironment(t *testing.T) {
 		}
 	}
 }
+
+func TestDecodeRejectsDeepTypesBeforeDecoding(t *testing.T) {
+	input := `{"schemaVersion":1,"variables":{"items":{"type":"list","element":{"type":"string"}}}}`
+	if _, err := Decode(input, 1); err == nil {
+		t.Fatal("deep environment type was accepted")
+	}
+}
