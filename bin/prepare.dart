@@ -24,7 +24,7 @@ Future<void> main(List<String> args) async {
       throw StateError('could not resolve the cel_bridge package root');
     }
     final sourceRoot = Directory.fromUri(versionUri).parent.parent;
-    final outputRoot = Directory.current;
+    final outputRoot = sourceRoot;
     final platform = parseOption(args, 'platform') ?? 'native';
     if (platform == 'web') {
       final output = Directory(parseOption(args, 'output') ?? 'web/cel_bridge')

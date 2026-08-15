@@ -2,7 +2,6 @@ package environment
 
 import (
 	"fmt"
-	"unicode"
 
 	"github.com/google/cel-go/cel"
 )
@@ -74,16 +73,24 @@ func validIdentifier(name string) bool {
 	}
 	for index, r := range name {
 		if index == 0 {
-			if r != '_' && !unicode.IsLetter(r) {
+			if r != '_' && !asciiLetter(r) {
 				return false
 			}
 			continue
 		}
-		if r != '_' && !unicode.IsLetter(r) && !unicode.IsDigit(r) {
+		if r != '_' && !asciiLetter(r) && !asciiDigit(r) {
 			return false
 		}
 	}
 	return true
+}
+
+func asciiLetter(r rune) bool {
+	return r >= 'A' && r <= 'Z' || r >= 'a' && r <= 'z'
+}
+
+func asciiDigit(r rune) bool {
+	return r >= '0' && r <= '9'
 }
 
 var reservedIdentifiers = map[string]bool{

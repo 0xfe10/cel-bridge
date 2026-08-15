@@ -1,6 +1,7 @@
 #import "CelBridgePlugin.h"
 
 #include "../../include/cel_bridge.h"
+#import <dispatch/dispatch.h>
 
 static FlutterError *CelBridgeError(NSString *message) {
   return [FlutterError errorWithCode:@"internal_error"
@@ -63,18 +64,24 @@ static BOOL CelBridgeHasNUL(NSString *value) {
     return;
   }
 
-  char *value = NULL;
-  if ([call.method isEqualToString:@"validate"] && variables == nil) {
-    value = cel_bridge_validate([environment UTF8String], [source UTF8String]);
-  } else if ([call.method isEqualToString:@"evaluate"] && variables != nil) {
-    value = cel_bridge_evaluate(
-        [environment UTF8String], [source UTF8String], [variables UTF8String]);
-  } else {
+  BOOL validate = [call.method isEqualToString:@"validate"] && variables == nil;
+  BOOL evaluate = [call.method isEqualToString:@"evaluate"] && variables != nil;
+  if (!validate && !evaluate) {
     result(FlutterMethodNotImplemented);
     return;
   }
-  NSString *json = CelBridgeJSON(value);
-  result(json ?: CelBridgeError(@"iOS CEL runtime returned invalid JSON"));
+
+  dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+    char *value = validate
+        ? cel_bridge_validate([environment UTF8String], [source UTF8String])
+        : cel_bridge_evaluate(
+              [environment UTF8String], [source UTF8String],
+              [variables UTF8String]);
+    NSString *json = CelBridgeJSON(value);
+    dispatch_async(dispatch_get_main_queue(), ^{
+      result(json ?: CelBridgeError(@"iOS CEL runtime returned invalid JSON"));
+    });
+  });
 }
 
 @end

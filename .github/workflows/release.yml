@@ -388,8 +388,96 @@ jobs:
           dart pub get
           dart run bin/main.dart
 
+  release-platform-consumption:
+    needs: draft
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: windows
+            runner: windows-latest
+            kind: native
+          - name: macos
+            runner: macos-14
+            kind: native
+          - name: ios
+            runner: macos-14
+            kind: ios
+          - name: android
+            runner: ubuntu-latest
+            kind: android
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@1508160852fb97248640997f7cfb38da241df0ba
+        with:
+          channel: stable
+          cache: true
+
+      - name: Download platform assets from Draft Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p build/release-download
+          gh release download "$GITHUB_REF_NAME" \
+            --repo "$GITHUB_REPOSITORY" \
+            --dir build/release-download
+
+      - name: Run downloaded platform smoke
+        shell: bash
+        env:
+          PLATFORM_KIND: ${{ matrix.kind }}
+        run: |
+          set -euo pipefail
+          python3 -m http.server 8125 --directory build/release-download \
+            >build/release-download/http.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid"' EXIT
+          for attempt in $(seq 1 20); do
+            if curl --fail --silent http://127.0.0.1:8125/ >/dev/null; then
+              break
+            fi
+            sleep 1
+          done
+
+          case "$PLATFORM_KIND" in
+            native)
+              cd tool/release_http_consumer
+              dart pub get
+              dart run bin/main.dart
+              ;;
+            ios)
+              export CEL_BRIDGE_IOS_XCFRAMEWORK_URL="http://127.0.0.1:8125/cel-bridge-ios-xcframework-v$(cat VERSION).zip"
+              export CEL_BRIDGE_IOS_XCFRAMEWORK_CHECKSUM_URL="http://127.0.0.1:8125/checksums.txt"
+              cd example/flutter_app
+              flutter pub get
+              flutter build ios --simulator --no-codesign
+              ;;
+            android)
+              cp -R example/flutter_app build/release-android-example
+              python3 -c "from pathlib import Path; p=Path('build/release-android-example/pubspec.yaml'); s=p.read_text(); old='      build_from_source: true'; new='      release_base_url: http://127.0.0.1:8125/\\n      allow_insecure_release_base: true'; assert old in s, 'example hook configuration changed'; p.write_text(s.replace(old, new))"
+              cd build/release-android-example
+              flutter pub get
+              flutter build apk --debug
+              ;;
+            *)
+              echo "unsupported platform kind: $PLATFORM_KIND" >&2
+              exit 1
+              ;;
+          esac
+
   publish-check:
-    needs: release-consumption
+    needs: [release-consumption, release-platform-consumption]
     runs-on: ubuntu-latest
     steps:
       - name: Check out source
@@ -408,7 +496,7 @@ jobs:
         run: dart pub publish --dry-run
 
   publish:
-    needs: [release-consumption, publish-check]
+    needs: [release-consumption, release-platform-consumption, publish-check]
     runs-on: ubuntu-latest
     permissions:
       contents: write
