@@ -192,7 +192,7 @@ jobs:
         working-directory: example/flutter_app
         run: |
           export CC="$(xcrun --sdk iphonesimulator --find clang)"
-          flutter build ios --simulator --no-codesign
+          flutter build ios --simulator --release --no-codesign
 
       - name: Build macOS artifact
         run: |
