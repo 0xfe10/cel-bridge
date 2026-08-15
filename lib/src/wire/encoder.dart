@@ -3,6 +3,8 @@ import 'dart:typed_data';
 
 import '../cel_value.dart';
 
+final _maxCelInt = BigInt.parse('9223372036854775807');
+
 String encodeEnvironment(Map<String, Object?> environment) {
   return jsonEncode(_jsonObject(environment, 'environment'));
 }
@@ -14,9 +16,7 @@ String encodeVariables(Map<String, Object?> variables) {
 Object? _jsonValue(Object? value) {
   if (value is CelValue) return value.toJson();
   if (value is BigInt) {
-    final kind = value.isNegative || value <= BigInt.from(0x7fffffffffffffff)
-        ? 'int'
-        : 'uint';
+    final kind = value.isNegative || value <= _maxCelInt ? 'int' : 'uint';
     return {'kind': kind, 'value': value.toString()};
   }
   if (value is Uint8List) {
