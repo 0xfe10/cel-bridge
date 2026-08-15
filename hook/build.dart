@@ -216,6 +216,15 @@ Future<void> _buildFromSource(
     throw StateError('source build requires Go 1.26; got ${version.trim()}');
   }
   final staticLinking = target.staticLinking;
+  final androidCompiler =
+      target.goos == 'android' ? _androidCompiler(target.goarch) : null;
+  final environment = {
+    ...Platform.environment,
+    'CGO_ENABLED': '1',
+    'GOOS': target.goos,
+    'GOARCH': target.goarch,
+    ..._compilerEnvironment(androidCompiler),
+  };
   final result = await Process.run(
     'go',
     [
@@ -227,12 +236,7 @@ Future<void> _buildFromSource(
       './cmd/cel-bridge-native',
     ],
     workingDirectory: input.packageRoot.toFilePath(),
-    environment: {
-      ...Platform.environment,
-      'CGO_ENABLED': '1',
-      'GOOS': target.goos,
-      'GOARCH': target.goarch,
-    },
+    environment: environment,
   );
   if (result.exitCode != 0) {
     throw StateError(
@@ -243,6 +247,35 @@ Future<void> _buildFromSource(
   if (!File.fromUri(assetPath).existsSync()) {
     throw StateError('Go source build did not produce $libraryName');
   }
+}
+
+Map<String, String> _compilerEnvironment(String? compiler) =>
+    compiler == null ? const {} : {'CC': compiler};
+
+String? _androidCompiler(String goarch) {
+  final existing = Platform.environment['CC'];
+  if (existing != null && existing.isNotEmpty) return existing;
+  final ndk = Platform.environment['ANDROID_NDK_ROOT'] ??
+      Platform.environment['ANDROID_NDK_HOME'];
+  if (ndk == null) return null;
+  final host = Platform.isWindows
+      ? 'windows-x86_64'
+      : Platform.isMacOS
+          ? 'darwin-x86_64'
+          : 'linux-x86_64';
+  final compilerName = switch (goarch) {
+    'arm64' => 'aarch64-linux-android21-clang',
+    'arm' => 'armv7a-linux-androideabi21-clang',
+    'amd64' => 'x86_64-linux-android21-clang',
+    _ => null,
+  };
+  if (compilerName == null) return null;
+  final compiler = File.fromUri(
+    Directory(ndk).uri.resolve(
+      'toolchains/llvm/prebuilt/$host/bin/$compilerName',
+    ),
+  );
+  return compiler.existsSync() ? compiler.path : null;
 }
 
 Future<Map<String, Object?>> _getJson(Uri uri) async {
