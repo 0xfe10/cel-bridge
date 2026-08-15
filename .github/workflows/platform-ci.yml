@@ -1,0 +1,331 @@
+name: Platform CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Set up Go
+        uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00
+        with:
+          go-version: '1.26.5'
+          cache: true
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@1508160852fb97248640997f7cfb38da241df0ba
+        with:
+          channel: stable
+          cache: true
+
+      - name: Get Dart dependencies
+        run: dart pub get
+
+      - name: Build Linux source artifact
+        run: dart run bin/prepare.dart --target linux-x86_64 --output build/consumer
+        env:
+          CEL_BRIDGE_BUILD_FROM_SOURCE: '1'
+
+      - name: Run source Dart CLI smoke
+        working-directory: example/dart_cli
+        run: |
+          dart pub get
+          dart run
+
+      - name: Run prebuilt Dart consumer smoke
+        working-directory: tool/release_consumer
+        run: |
+          dart pub get
+          dart run
+
+      - name: Build Flutter Linux example
+        working-directory: example/flutter_app
+        run: |
+          flutter pub get
+          flutter build linux --debug
+
+      - name: Package and verify Linux artifact
+        run: |
+          dart run tool/build_artifact.dart --target linux-x86_64 --output build/artifacts
+          dart run tool/build_manifest.dart --input build/artifacts
+          dart run tool/verify_artifact.dart \
+            --manifest build/artifacts/cel-bridge-manifest-v$(cat VERSION).json
+
+      - name: Verify release-shaped HTTP download
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/download
+          python3 -m http.server 8123 --directory build/artifacts >build/http.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid"' EXIT
+          manifest="cel-bridge-manifest-v$(cat VERSION).json"
+          artifact="$(find build/artifacts -maxdepth 1 -type f -name 'cel-bridge-linux-x86_64-v*.tar.gz' -printf '%f\n')"
+          for attempt in $(seq 1 20); do
+            if curl --fail --silent --show-error \
+              "http://127.0.0.1:8123/$manifest" \
+              -o "build/download/$manifest"; then
+              break
+            fi
+            sleep 1
+          done
+          curl --fail --silent --show-error \
+            "http://127.0.0.1:8123/$artifact" \
+            -o "build/download/$artifact"
+          dart run tool/verify_artifact.dart \
+            --manifest "build/download/$manifest" \
+            --input build/download
+
+      - name: Upload Linux artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: platform-linux
+          path: build/artifacts/*
+
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Set up Go
+        uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00
+        with:
+          go-version: '1.26.5'
+          cache: true
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@1508160852fb97248640997f7cfb38da241df0ba
+        with:
+          channel: stable
+          cache: true
+
+      - name: Select Android NDK compiler
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdk_root="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}"
+          ndk="$(find "$sdk_root/ndk" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
+          test -n "$ndk"
+          compiler="$ndk/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android21-clang"
+          test -x "$compiler"
+          echo "ANDROID_NDK_ROOT=$ndk" >> "$GITHUB_ENV"
+          echo "CC=$compiler" >> "$GITHUB_ENV"
+
+      - name: Get Dart dependencies
+        run: dart pub get
+
+      - name: Build Android source artifact
+        run: dart run tool/build_artifact.dart --target android-arm64-v8a --output build/artifacts
+
+      - name: Build Android Flutter example
+        working-directory: example/flutter_app
+        run: |
+          flutter pub get
+          flutter build apk --debug
+
+      - name: Generate and verify Android manifest
+        run: |
+          dart run tool/build_manifest.dart --input build/artifacts
+          dart run tool/verify_artifact.dart \
+            --manifest build/artifacts/cel-bridge-manifest-v$(cat VERSION).json
+
+      - name: Upload Android artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: platform-android
+          path: build/artifacts/*
+
+  apple:
+    runs-on: macos-14
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Set up Go
+        uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00
+        with:
+          go-version: '1.26.5'
+          cache: true
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@1508160852fb97248640997f7cfb38da241df0ba
+        with:
+          channel: stable
+          cache: true
+
+      - name: Get Dart dependencies
+        run: dart pub get
+
+      - name: Build Flutter macOS example
+        working-directory: example/flutter_app
+        run: |
+          flutter pub get
+          flutter build macos --debug
+
+      - name: Build Flutter iOS simulator example
+        working-directory: example/flutter_app
+        run: |
+          export CC="$(xcrun --sdk iphoneos --find clang)"
+          flutter build ios --simulator --no-codesign
+
+      - name: Build macOS artifact
+        run: |
+          env -u CC dart run tool/build_artifact.dart \
+            --target macos-arm64 --output build/artifacts
+
+      - name: Build iOS artifact
+        run: |
+          CC="$(xcrun --sdk iphoneos --find clang)" \
+            dart run tool/build_artifact.dart \
+            --target ios-arm64 --output build/artifacts
+
+      - name: Generate and verify Apple manifest
+        run: |
+          dart run tool/build_manifest.dart --input build/artifacts
+          dart run tool/verify_artifact.dart \
+            --manifest build/artifacts/cel-bridge-manifest-v$(cat VERSION).json
+
+      - name: Upload Apple artifacts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: platform-apple
+          path: build/artifacts/*
+
+  windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Set up Go
+        uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00
+        with:
+          go-version: '1.26.5'
+          cache: true
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@1508160852fb97248640997f7cfb38da241df0ba
+        with:
+          channel: stable
+          cache: true
+
+      - name: Get Dart dependencies
+        run: dart pub get
+
+      - name: Build Windows source artifact
+        run: dart run bin/prepare.dart --target windows-x86_64 --output build/consumer
+        env:
+          CEL_BRIDGE_BUILD_FROM_SOURCE: '1'
+
+      - name: Run prebuilt Windows consumer smoke
+        working-directory: tool/release_consumer
+        run: |
+          dart pub get
+          dart run
+
+      - name: Build Flutter Windows example
+        working-directory: example/flutter_app
+        run: |
+          flutter pub get
+          flutter build windows --debug
+
+      - name: Package and verify Windows artifact
+        run: |
+          dart run tool/build_artifact.dart --target windows-x86_64 --output build/artifacts
+          dart run tool/build_manifest.dart --input build/artifacts
+          dart run tool/verify_artifact.dart \
+            --manifest build/artifacts/cel-bridge-manifest-v$(cat VERSION).json
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: platform-windows
+          path: build/artifacts/*
+
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Set up Go
+        uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00
+        with:
+          go-version: '1.26.5'
+          cache: true
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@1508160852fb97248640997f7cfb38da241df0ba
+        with:
+          channel: stable
+          cache: true
+
+      - name: Get Dart dependencies
+        run: dart pub get
+
+      - name: Build and verify Wasm artifact
+        run: |
+          dart run tool/build_artifact.dart --target wasm --output build/artifacts
+          dart run tool/build_manifest.dart --input build/artifacts
+          dart run tool/verify_artifact.dart \
+            --manifest build/artifacts/cel-bridge-manifest-v$(cat VERSION).json
+
+      - name: Prepare self-hosted web assets
+        run: |
+          CEL_BRIDGE_BUILD_FROM_SOURCE=1 \
+            dart run bin/prepare.dart --platform web --output build/web
+
+      - name: Build Flutter Web example
+        working-directory: example/flutter_app
+        run: |
+          flutter pub get
+          cp ../../build/web/cel_bridge.wasm web/cel_bridge.wasm
+          cp ../../build/web/wasm_exec.js web/wasm_exec.js
+          flutter build web --debug \
+            --dart-define=CEL_BRIDGE_WASM_URL=/cel_bridge.wasm \
+            --dart-define=CEL_BRIDGE_WASM_EXEC_URL=/wasm_exec.js
+
+      - name: Compile browser smoke fixture
+        run: |
+          mkdir -p build/web-smoke
+          dart compile js tool/web_smoke.dart -o build/web-smoke/main.dart.js
+          cp tool/web_smoke.html build/web-smoke/index.html
+          cp build/web/cel_bridge.wasm build/web-smoke/cel_bridge.wasm
+          cp build/web/wasm_exec.js build/web-smoke/wasm_exec.js
+
+      - name: Run browser smoke fixture
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m http.server 8124 --directory build/web-smoke >build/web-smoke.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid"' EXIT
+          for attempt in $(seq 1 20); do
+            if curl --fail --silent http://127.0.0.1:8124/ >/dev/null; then break; fi
+            sleep 1
+          done
+          google-chrome --headless --no-sandbox --disable-gpu \
+            --dump-dom --virtual-time-budget=5000 \
+            http://127.0.0.1:8124/ | tee build/web-smoke/dom.html
+          grep -Fq '0.1.0|true|true' build/web-smoke/dom.html
+
+      - name: Upload Web artifacts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: platform-web
+          path: |
+            build/artifacts/*
+            build/web/*
