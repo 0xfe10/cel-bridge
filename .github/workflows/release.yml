@@ -309,6 +309,7 @@ jobs:
           release_response="$(gh api --include \
             "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG" \
             2>/dev/null || true)"
+          release_response="${release_response//$'\r'/}"
           release_status="$(sed -n \
             's/^HTTP\/[^ ]* \([0-9][0-9][0-9]\).*/\1/p' <<<"$release_response" \
             | head -n 1)"
