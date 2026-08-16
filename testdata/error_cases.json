@@ -1,0 +1,32 @@
+[
+  {
+    "name": "undeclared variable",
+    "environment": {"schemaVersion": 1, "variables": {}},
+    "source": "missing == true",
+    "variables": {},
+    "operation": "validate",
+    "expectedCode": "undeclared_reference"
+  },
+  {
+    "name": "invalid type",
+    "environment": {
+      "schemaVersion": 1,
+      "variables": {"age": {"type": "int"}}
+    },
+    "source": "age + \"years\"",
+    "variables": {"age": 20},
+    "operation": "validate",
+    "expectedCode": "type_error"
+  },
+  {
+    "name": "invalid environment",
+    "environment": {
+      "schemaVersion": 1,
+      "variables": {"1age": {"type": "int"}}
+    },
+    "source": "true",
+    "variables": {},
+    "operation": "evaluate",
+    "expectedCode": "invalid_environment"
+  }
+]

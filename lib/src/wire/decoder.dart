@@ -1,0 +1,113 @@
+import 'dart:convert';
+
+import '../cel_exception.dart';
+import '../cel_runtime_options.dart';
+import '../cel_validation_result.dart';
+import '../cel_value.dart';
+import '../runtime_info.dart';
+
+CelValidationResult decodeValidation(String raw) {
+  final response = _response(raw);
+  return _decodeResult(
+    'validation result',
+    () => CelValidationResult.fromJson(response['result']),
+  );
+}
+
+CelValue decodeEvaluation(String raw) {
+  final response = _response(raw);
+  return _decodeResult(
+    'evaluation result',
+    () => CelValue.fromJson(response['result']),
+  );
+}
+
+CelRuntimeInfo decodeRuntimeInfo(String raw) {
+  final value = _decode(raw);
+  final info = _decodeResult(
+    'runtime info',
+    () => CelRuntimeInfo.fromJson(value),
+  );
+  if (info.protocolVersion != wireProtocolVersion) {
+    throw CelBridgeException(
+      code: 'protocol_mismatch',
+      message:
+          'expected protocol $wireProtocolVersion, got ${info.protocolVersion}',
+    );
+  }
+  if (info.runtimeVersion != packageVersion) {
+    throw CelBridgeException(
+      code: 'runtime_mismatch',
+      message: 'expected runtime $packageVersion, got ${info.runtimeVersion}',
+    );
+  }
+  return info;
+}
+
+Map<String, Object?> _response(String raw) {
+  final value = _decode(raw);
+  final response = _object(value, 'response');
+  if (response['protocolVersion'] != wireProtocolVersion) {
+    throw CelBridgeException(
+      code: 'protocol_mismatch',
+      message: 'unexpected protocol version ${response['protocolVersion']}',
+    );
+  }
+  final ok = response['ok'];
+  if (ok is! bool) {
+    throw const CelBridgeException(
+      code: 'protocol_mismatch',
+      message: 'response.ok must be a boolean',
+    );
+  }
+  if (!ok) {
+    throw _bridgeError(response['error']);
+  }
+  return response;
+}
+
+T _decodeResult<T>(String name, T Function() decode) {
+  try {
+    return decode();
+  } on CelBridgeException {
+    rethrow;
+  } on FormatException catch (error) {
+    throw CelBridgeException(
+      code: 'protocol_mismatch',
+      message: 'malformed $name: $error',
+    );
+  }
+}
+
+CelBridgeException _bridgeError(Object? json) {
+  try {
+    return CelBridgeException.fromJson(json);
+  } on FormatException catch (error) {
+    return CelBridgeException(
+      code: 'protocol_mismatch',
+      message: 'malformed bridge error: $error',
+    );
+  }
+}
+
+Object? _decode(String raw) {
+  try {
+    return jsonDecode(raw);
+  } on FormatException catch (error) {
+    throw CelBridgeException(
+      code: 'protocol_mismatch',
+      message: 'malformed JSON: $error',
+    );
+  }
+}
+
+Map<String, Object?> _object(Object? value, String name) {
+  if (value is Map<String, Object?>) return value;
+  if (value is Map) {
+    return value.map((key, value) => MapEntry(key.toString(), value));
+  }
+  throw CelBridgeException(
+    code: 'protocol_mismatch',
+    message: '$name must be an object',
+  );
+}

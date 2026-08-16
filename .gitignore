@@ -1,0 +1,15 @@
+.dart_tool/
+.packages
+.pub/
+build/
+coverage/
+pubspec.lock
+
+*.so
+*.dylib
+*.dll
+*.a
+*.lib
+*.wasm
+
+.worktrees/

@@ -1,0 +1,170 @@
+[
+  {
+    "name": "adult boolean",
+    "environment": {
+      "schemaVersion": 1,
+      "variables": {
+        "age": {"type": "int"}
+      }
+    },
+    "source": "age >= 18",
+    "variables": {"age": 20},
+    "expected": {"kind": "bool", "value": true}
+  },
+  {
+    "name": "list macro",
+    "environment": {
+      "schemaVersion": 1,
+      "variables": {
+        "country": {"type": "string"}
+      }
+    },
+    "source": "[\"CN\", \"SG\"].exists(code, code == country)",
+    "variables": {"country": "CN"},
+    "expected": {"kind": "bool", "value": true}
+  },
+  {
+    "name": "nested map",
+    "environment": {
+      "schemaVersion": 1,
+      "variables": {
+        "user": {
+          "type": "map",
+          "key": {"type": "string"},
+          "value": {"type": "dyn"}
+        }
+      }
+    },
+    "source": "\"premium\" in user.tags",
+    "variables": {"user": {"tags": ["free", "premium"]}},
+    "expected": {"kind": "bool", "value": true}
+  },
+  {
+    "name": "signed integer",
+    "environment": {
+      "schemaVersion": 1,
+      "variables": {"number": {"type": "int"}}
+    },
+    "source": "number",
+    "variables": {
+      "number": {"$cel_bridge": true, "kind": "int", "value": "9223372036854775807"}
+    },
+    "expected": {"kind": "int", "value": "9223372036854775807"}
+  },
+  {
+    "name": "unsigned integer",
+    "environment": {
+      "schemaVersion": 1,
+      "variables": {"number": {"type": "uint"}}
+    },
+    "source": "number",
+    "variables": {
+      "number": {"$cel_bridge": true, "kind": "uint", "value": "18446744073709551615"}
+    },
+    "expected": {"kind": "uint", "value": "18446744073709551615"}
+  },
+  {
+    "name": "bytes",
+    "environment": {
+      "schemaVersion": 1,
+      "variables": {"payload": {"type": "bytes"}}
+    },
+    "source": "payload",
+    "variables": {"payload": {"$cel_bridge": true, "kind": "bytes", "value": "SGVsbG8="}},
+    "expected": {"kind": "bytes", "value": "SGVsbG8="}
+  },
+  {
+    "name": "timestamp",
+    "environment": {
+      "schemaVersion": 1,
+      "variables": {"created": {"type": "timestamp"}}
+    },
+    "source": "created",
+    "variables": {
+      "created": {"$cel_bridge": true, "kind": "timestamp", "value": "2026-08-15T10:00:00Z"}
+    },
+    "expected": {"kind": "timestamp", "value": "2026-08-15T10:00:00Z"}
+  },
+  {
+    "name": "duration",
+    "environment": {
+      "schemaVersion": 1,
+      "variables": {"latency": {"type": "duration"}}
+    },
+    "source": "latency",
+    "variables": {"latency": {"$cel_bridge": true, "kind": "duration", "value": "1.5s"}},
+    "expected": {"kind": "duration", "value": "1.500000000s"}
+  },
+  {
+    "name": "list value",
+    "environment": {
+      "schemaVersion": 1,
+      "variables": {
+        "tags": {"type": "list", "element": {"type": "string"}}
+      }
+    },
+    "source": "tags",
+    "variables": {"tags": ["a", "b"]},
+    "expected": {
+      "kind": "list",
+      "items": [
+        {"kind": "string", "value": "a"},
+        {"kind": "string", "value": "b"}
+      ]
+    }
+  },
+  {
+    "name": "empty list value",
+    "environment": {
+      "schemaVersion": 1,
+      "variables": {}
+    },
+    "source": "[]",
+    "variables": {},
+    "expected": {
+      "kind": "list",
+      "items": []
+    }
+  },
+  {
+    "name": "empty map value",
+    "environment": {
+      "schemaVersion": 1,
+      "variables": {}
+    },
+    "source": "{}",
+    "variables": {},
+    "expected": {
+      "kind": "map",
+      "entries": []
+    }
+  },
+  {
+    "name": "map value",
+    "environment": {
+      "schemaVersion": 1,
+      "variables": {
+        "attributes": {
+          "type": "map",
+          "key": {"type": "string"},
+          "value": {"type": "dyn"}
+        }
+      }
+    },
+    "source": "attributes",
+    "variables": {"attributes": {"z": 2, "a": 1}},
+    "expected": {
+      "kind": "map",
+      "entries": [
+        {
+          "key": {"kind": "string", "value": "a"},
+          "value": {"kind": "int", "value": "1"}
+        },
+        {
+          "key": {"kind": "string", "value": "z"},
+          "value": {"kind": "int", "value": "2"}
+        }
+      ]
+    }
+  }
+]
