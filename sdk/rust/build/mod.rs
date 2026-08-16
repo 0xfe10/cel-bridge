@@ -11,6 +11,7 @@ pub fn run() -> Result<(), String> {
         "CEL_BRIDGE_RUNTIME_SOURCE",
         "CEL_BRIDGE_RELEASE_BASE_URL",
         "CEL_BRIDGE_ALLOW_INSECURE_RELEASE_BASE",
+        "CEL_BRIDGE_CROSS_CC",
     ] {
         println!("cargo:rerun-if-env-changed={name}");
     }

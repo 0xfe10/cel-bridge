@@ -129,7 +129,7 @@ jobs:
           cache: true
 
       - name: Set up Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@4360b52568e2003a75bf9bc1d59f33a8e3fc893c
 
       - name: Set up MSVC environment
         if: matrix.kind == 'windows'
@@ -368,7 +368,7 @@ jobs:
           cache: true
 
       - name: Set up Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@4360b52568e2003a75bf9bc1d59f33a8e3fc893c
 
       - name: Download Draft Release assets
         shell: bash
@@ -490,13 +490,37 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Set up Rust for Windows consumer
-        if: matrix.kind == 'windows'
-        uses: dtolnay/rust-toolchain@stable
+      - name: Set up Rust for release consumer
+        if: matrix.kind == 'windows' || matrix.kind == 'macos' || matrix.kind == 'android' || matrix.kind == 'ios'
+        uses: dtolnay/rust-toolchain@4360b52568e2003a75bf9bc1d59f33a8e3fc893c
 
       - name: Set up MSVC for Windows consumer
         if: matrix.kind == 'windows'
         uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756
+
+      - name: Configure Rust MSVC linker
+        if: matrix.kind == 'windows'
+        shell: pwsh
+        run: |
+          $linker = Join-Path $env:VCToolsInstallDir 'bin\HostX64\x64\link.exe'
+          if (-not (Test-Path -LiteralPath $linker)) {
+            throw "MSVC linker not found: $linker"
+          }
+          "CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER=$linker" |
+            Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Install Android Rust target
+        if: matrix.kind == 'android'
+        run: |
+          rustup target add x86_64-linux-android
+          sdk_root="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}"
+          ndk="$(find "$sdk_root/ndk" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
+          test -n "$ndk"
+          echo "ANDROID_NDK_ROOT=$ndk" >> "$GITHUB_ENV"
+
+      - name: Install iOS Rust targets
+        if: matrix.kind == 'ios'
+        run: rustup target add aarch64-apple-ios aarch64-apple-ios-sim
 
       - name: Download Draft Release assets
         shell: bash
@@ -520,6 +544,24 @@ jobs:
           cd tools/fixtures/release_http_consumer
           dart pub get
           dart run bin/main.dart
+
+      - name: Run downloaded macOS Rust consumer
+        if: matrix.kind == 'macos'
+        run: |
+          version="$(cat VERSION)"
+          mkdir -p "build/release-download/v$version"
+          find build/release-download -maxdepth 1 -type f \
+            -exec cp {} "build/release-download/v$version/" \;
+          python3 -m http.server 8126 --directory build/release-download >build/release-macos-rust-http.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid"' EXIT
+          for attempt in $(seq 1 20); do
+            if curl --fail --silent "http://127.0.0.1:8126/v$version/cel-bridge-manifest-v$version.json" >/dev/null; then break; fi
+            sleep 1
+          done
+          CEL_BRIDGE_RELEASE_BASE_URL=http://127.0.0.1:8126 \
+            CEL_BRIDGE_ALLOW_INSECURE_RELEASE_BASE=1 \
+            cargo run --manifest-path tools/fixtures/rust-release-consumer/Cargo.toml --quiet
 
       - name: Run downloaded Windows Rust consumer
         if: matrix.kind == 'windows'
@@ -550,6 +592,28 @@ jobs:
               (binary.parent / 'cel_bridge.dll').write_bytes(package.read(name))
           PY
           tools/fixtures/rust-release-consumer/target/debug/cel-bridge-rust-release-consumer.exe
+
+      - name: Prepare downloaded Android Rust consumer
+        if: matrix.kind == 'android'
+        run: |
+          version="$(cat VERSION)"
+          mkdir -p "build/release-rust-download/v$version"
+          find build/release-download -maxdepth 1 -type f \
+            -exec cp {} "build/release-rust-download/v$version/" \;
+          python3 -m http.server 8126 --directory build/release-rust-download >build/release-android-rust-http.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid"' EXIT
+          for attempt in $(seq 1 20); do
+            if curl --fail --silent "http://127.0.0.1:8126/v$version/cel-bridge-manifest-v$version.json" >/dev/null; then break; fi
+            sleep 1
+          done
+          linker="$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/x86_64-linux-android21-clang"
+          CEL_BRIDGE_RELEASE_BASE_URL=http://127.0.0.1:8126 \
+            CEL_BRIDGE_ALLOW_INSECURE_RELEASE_BASE=1 \
+            CARGO_TARGET_X86_64_LINUX_ANDROID_LINKER="$linker" \
+            CC_x86_64_linux_android="$linker" \
+            cargo build --manifest-path sdk/rust/tests-platform/android/Cargo.toml \
+              --target x86_64-linux-android
 
       - name: Prepare downloaded Android example
         if: matrix.kind == 'android'
@@ -591,6 +655,81 @@ jobs:
             set -euo pipefail
             cd "$GITHUB_WORKSPACE/build/release-android-example"
             flutter test --no-pub integration_test/runtime_test.dart -d emulator-5554
+            cd "$GITHUB_WORKSPACE"
+            binary="sdk/rust/tests-platform/android/target/x86_64-linux-android/debug/cel-bridge-android-smoke"
+            library="$(find sdk/rust/tests-platform/android/target -type f -name libcel_bridge.so | head -n 1)"
+            test -f "$binary"
+            test -n "$library"
+            adb push "$binary" /data/local/tmp/cel-bridge-android-smoke
+            adb push "$library" /data/local/tmp/libcel_bridge.so
+            adb shell chmod 755 /data/local/tmp/cel-bridge-android-smoke
+            adb shell 'LD_LIBRARY_PATH=/data/local/tmp /data/local/tmp/cel-bridge-android-smoke'
+
+      - name: Prepare downloaded iOS Rust consumer
+        if: matrix.kind == 'ios'
+        run: |
+          version="$(cat VERSION)"
+          mkdir -p "build/release-rust-download/v$version"
+          find build/release-download -maxdepth 1 -type f \
+            -exec cp {} "build/release-rust-download/v$version/" \;
+          python3 -m http.server 8126 --directory build/release-rust-download >build/release-ios-rust-http.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid"' EXIT
+          for attempt in $(seq 1 20); do
+            if curl --fail --silent "http://127.0.0.1:8126/v$version/cel-bridge-manifest-v$version.json" >/dev/null; then break; fi
+            sleep 1
+          done
+          for target in aarch64-apple-ios aarch64-apple-ios-sim; do
+            CEL_BRIDGE_RELEASE_BASE_URL=http://127.0.0.1:8126 \
+              CEL_BRIDGE_ALLOW_INSECURE_RELEASE_BASE=1 \
+              cargo build --manifest-path sdk/rust/tests-platform/ios/Cargo.toml \
+                --target "$target" --release
+          done
+          rust_library="$(find sdk/rust/tests-platform/ios/target/aarch64-apple-ios-sim/release \
+            -maxdepth 1 -name libcel_bridge_ios_smoke.a -print -quit)"
+          go_library="$(find sdk/rust/tests-platform/ios/target/aarch64-apple-ios-sim/release/build \
+            -path '*/out/libcel_bridge.a' -print -quit)"
+          test -n "$rust_library"
+          test -n "$go_library"
+          mkdir -p build/cel-bridge-rust-release-smoke.app
+          python3 - <<'PY'
+          from pathlib import Path
+          import plistlib
+
+          root = Path('build/cel-bridge-rust-release-smoke.app')
+          (root / 'main.c').write_text(
+              '#include <stdio.h>\n'
+              'extern int cel_bridge_rust_smoke(void);\n'
+              'int main(void) {\n'
+              '  int result = cel_bridge_rust_smoke();\n'
+              '  printf("cel-bridge rust iOS release smoke: %d\\n", result);\n'
+              '  return result;\n'
+              '}\n'
+          )
+          with (root / 'Info.plist').open('wb') as output:
+              plistlib.dump(
+                  {
+                      'CFBundleDevelopmentRegion': 'en',
+                      'CFBundleExecutable': 'CelBridgeRustSmoke',
+                      'CFBundleIdentifier': 'com.celbridge.rust-release-smoke',
+                      'CFBundleInfoDictionaryVersion': '6.0',
+                      'CFBundleName': 'CelBridgeRustSmoke',
+                      'CFBundlePackageType': 'APPL',
+                      'CFBundleShortVersionString': '0.2.0',
+                      'CFBundleVersion': '1',
+                      'MinimumOSVersion': '13.0',
+                  },
+                  output,
+              )
+          PY
+          sdk="$(xcrun --sdk iphonesimulator --show-sdk-path)"
+          xcrun --sdk iphonesimulator clang \
+            -target arm64-apple-ios-simulator \
+            -isysroot "$sdk" \
+            build/cel-bridge-rust-release-smoke.app/main.c \
+            "$rust_library" "$go_library" \
+            -framework Foundation \
+            -o build/cel-bridge-rust-release-smoke.app/CelBridgeRustSmoke
 
       - name: Prepare downloaded iOS example
         if: matrix.kind == 'ios'
@@ -621,6 +760,12 @@ jobs:
           xcrun simctl boot "$device_id" 2>/dev/null || true
           xcrun simctl bootstatus "$device_id" -b
           flutter test --no-pub integration_test/runtime_test.dart -d "$device_id"
+          xcrun simctl install "$device_id" \
+            "$GITHUB_WORKSPACE/build/cel-bridge-rust-release-smoke.app"
+          xcrun simctl launch --console "$device_id" \
+            com.celbridge.rust-release-smoke | tee "$GITHUB_WORKSPACE/build/ios-rust-release-smoke.log"
+          grep -Fq 'cel-bridge rust iOS release smoke: 0' \
+            "$GITHUB_WORKSPACE/build/ios-rust-release-smoke.log"
 
   publish-check:
     needs: [version, release-consumption, release-platform-consumption]
@@ -645,7 +790,7 @@ jobs:
           cache: true
 
       - name: Set up Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@4360b52568e2003a75bf9bc1d59f33a8e3fc893c
 
       - name: Check package dry-runs
         run: |
