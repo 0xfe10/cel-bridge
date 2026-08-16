@@ -172,6 +172,7 @@ Future<ArtifactBuild> buildNativeArtifact({
     'go',
     [
       'build',
+      '-a',
       '-trimpath',
       '-buildmode=${target.staticLinking ? 'c-archive' : 'c-shared'}',
       '-o',
