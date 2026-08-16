@@ -46,6 +46,7 @@ flutter {
 tasks.configureEach {
     if (name == "compileFlutterBuildDebug") {
         dependsOn("checkDebugAarMetadata")
+        dependsOn("generateDebugResValues")
         dependsOn("mergeDebugNativeDebugMetadata")
         dependsOn("mergeDebugAssets")
         dependsOn("mergeDebugShaders")
