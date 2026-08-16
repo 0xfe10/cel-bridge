@@ -132,6 +132,10 @@ jobs:
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Set up MSVC environment
+        if: matrix.name == 'windows'
+        uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756
+
       - name: Install Linux build dependencies
         if: matrix.name == 'linux'
         run: |
@@ -365,10 +369,10 @@ jobs:
         if: matrix.name == 'windows'
         run: |
           CEL_BRIDGE_BUILD_FROM_SOURCE=1 \
-            cargo check --manifest-path sdk/rust/Cargo.toml \
+            cargo build --release --manifest-path sdk/rust/Cargo.toml \
               --target x86_64-pc-windows-msvc
           CEL_BRIDGE_BUILD_FROM_SOURCE=1 \
-            cargo check --manifest-path examples/rust-cli/Cargo.toml \
+            cargo build --release --manifest-path examples/rust-cli/Cargo.toml \
               --target x86_64-pc-windows-msvc
           (cd examples/flutter-app && flutter pub get && flutter build windows --debug)
 

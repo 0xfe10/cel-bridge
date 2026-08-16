@@ -8,6 +8,7 @@ readme = "README.md"
 repository = "https://github.com/0xfe10/cel-bridge"
 links = "cel_bridge"
 build = "build.rs"
+exclude = ["tests/conformance.rs", "tests/errors.rs"]
 
 [lib]
 crate-type = ["rlib", "staticlib"]

@@ -287,6 +287,9 @@ Future<ArtifactBuild> buildNativeArtifact({
   if (!rawFile.existsSync()) {
     throw StateError('Go build did not produce ${rawFile.path}');
   }
+  final importLibrary = target.goos == 'windows' && target.name.startsWith('rust-')
+      ? await _buildWindowsImportLibrary(root, rawFile)
+      : null;
   await File(
     '${rawFile.path}.sha256',
   ).writeAsString('${await sha256File(rawFile)}\n', flush: true);
@@ -294,14 +297,59 @@ Future<ArtifactBuild> buildNativeArtifact({
       ? File(_join(output.path, _archiveName(target, packageVersion(root))))
       : null;
   if (archiveFile != null) {
+    final files = <String, List<int>>{
+      target.libraryName: await rawFile.readAsBytes(),
+      if (importLibrary != null)
+        importLibrary.uri.pathSegments.last: await importLibrary.readAsBytes(),
+    };
     await archiveFile.writeAsBytes(
-      archiveBytes({
-        target.libraryName: await rawFile.readAsBytes(),
-      }, target.archiveExtension == 'zip'),
+      archiveBytes(files, target.archiveExtension == 'zip'),
       flush: true,
     );
   }
   return ArtifactBuild(target: target, rawFile: rawFile, archive: archiveFile);
+}
+
+Future<File> _buildWindowsImportLibrary(Directory root, File dll) async {
+  final definition = File(_join(root.path, 'abi/cel_bridge.def'));
+  if (!definition.existsSync()) {
+    throw StateError(
+      'Windows import definition is missing: ${definition.path}',
+    );
+  }
+  final output = File(_join(dll.parent.path, 'cel_bridge.lib'));
+  final commands = <(String, List<String>)>[
+    (
+      'lib.exe',
+      ['/DEF:${definition.path}', '/MACHINE:X64', '/OUT:${output.path}'],
+    ),
+    (
+      'llvm-dlltool',
+      ['-m', 'i386:x86-64', '-d', definition.path, '-l', output.path],
+    ),
+  ];
+  final failures = <String>[];
+  for (final (executable, arguments) in commands) {
+    try {
+      final result = await Process.run(
+        executable,
+        arguments,
+        workingDirectory: root.path,
+      );
+      if (result.exitCode == 0 &&
+          output.existsSync() &&
+          output.lengthSync() > 0) {
+        return output;
+      }
+      failures.add('$executable: ${result.stderr}'.trim());
+    } catch (error) {
+      failures.add('$executable: $error');
+    }
+  }
+  throw StateError(
+    'could not create cel_bridge.lib; install MSVC lib.exe or llvm-dlltool '
+    '(${failures.join('; ')})',
+  );
 }
 
 Future<Map<String, String>> _iosCompilerEnvironment(

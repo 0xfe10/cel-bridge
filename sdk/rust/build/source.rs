@@ -86,7 +86,66 @@ pub fn build(root: &Path, target: &Target, out_dir: &Path) -> Result<PathBuf, St
     if !output.is_file() {
         return Err(format!("Go build did not produce {}", output.display()));
     }
+    if let Some(import_library) = target.import_library {
+        create_windows_import_library(root, out_dir.join(import_library))?;
+    }
     Ok(output)
+}
+
+fn create_windows_import_library(root: &Path, output: PathBuf) -> Result<(), String> {
+    let definition = root.join("abi/cel_bridge.def");
+    if !definition.is_file() {
+        return Err(format!(
+            "Windows import definition is missing: {}",
+            definition.display()
+        ));
+    }
+    let commands = [
+        (
+            "lib.exe",
+            vec![
+                format!("/DEF:{}", definition.display()),
+                "/MACHINE:X64".to_string(),
+                format!("/OUT:{}", output.display()),
+            ],
+        ),
+        (
+            "llvm-dlltool",
+            vec![
+                "-m".to_string(),
+                "i386:x86-64".to_string(),
+                "-d".to_string(),
+                definition.display().to_string(),
+                "-l".to_string(),
+                output.display().to_string(),
+            ],
+        ),
+    ];
+    let mut failures = Vec::new();
+    for (executable, arguments) in commands {
+        match Command::new(executable)
+            .args(&arguments)
+            .current_dir(root)
+            .output()
+        {
+            Ok(result) if result.status.success() && output.is_file() => {
+                if output.metadata().map(|value| value.len()).unwrap_or(0) > 0 {
+                    return Ok(());
+                }
+                failures.push(format!("{executable}: generated an empty library"));
+            }
+            Ok(result) => failures.push(format!(
+                "{executable}: {}",
+                String::from_utf8_lossy(&result.stderr)
+            )),
+            Err(error) => failures.push(format!("{executable}: {error}")),
+        }
+    }
+    Err(format!(
+        "could not create {} ({})",
+        output.display(),
+        failures.join("; ")
+    ))
 }
 
 fn compiler_environment(target: &Target) -> Result<Vec<(&'static str, String)>, String> {

@@ -87,3 +87,10 @@ See [`docs/rust.md`](rust.md) for platform packaging and environment variables.
 7. Confirm `runtime.info.runtimeVersion == '0.2.0'`.
 
 No application source changes are required for the Dart API itself.
+
+## Go import path
+
+The new canonical Go package is
+`github.com/0xfe10/cel-bridge/runtime/celbridge`. The former
+`github.com/0xfe10/cel-bridge/celbridge` package remains as a thin forwarding
+compatibility package, so existing Go imports continue to build in v0.2.0.

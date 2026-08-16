@@ -183,10 +183,11 @@ archive into a device target.
 
 ## Windows deployment
 
-Windows uses `cel_bridge.dll`. Keep the DLL beside the final executable or in a
-directory on the process DLL search path. The release artifact is
-`cel-bridge-rust-windows-x86_64-v0.2.0.zip`. The DLL must match the executable's
-architecture and the Rust target's linker/toolchain.
+Windows uses `cel_bridge.dll` plus the MSVC-compatible `cel_bridge.lib` import
+library. The build script extracts both files; keep the DLL beside the final
+executable or in a directory on the process DLL search path. The release
+artifact is `cel-bridge-rust-windows-x86_64-v0.2.0.zip`. Both files must match
+the executable's architecture and the Rust target's linker/toolchain.
 
 ## Verify an integration
 

@@ -25,6 +25,7 @@ pub fn run() -> Result<(), String> {
     println!("cargo:rerun-if-changed=../../go.mod");
     println!("cargo:rerun-if-changed=../../go.sum");
     println!("cargo:rerun-if-changed=../../abi/cel_bridge.h");
+    println!("cargo:rerun-if-changed=../../abi/cel_bridge.def");
     println!("cargo:rerun-if-changed=../../runtime");
 
     let out_dir = std::path::PathBuf::from(

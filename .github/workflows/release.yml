@@ -13,6 +13,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: release-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
@@ -129,6 +130,10 @@ jobs:
 
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
+
+      - name: Set up MSVC environment
+        if: matrix.kind == 'windows'
+        uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756
 
       - name: Prepare Linux compilers
         if: matrix.kind == 'linux'
@@ -485,6 +490,14 @@ jobs:
           channel: stable
           cache: true
 
+      - name: Set up Rust for Windows consumer
+        if: matrix.kind == 'windows'
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Set up MSVC for Windows consumer
+        if: matrix.kind == 'windows'
+        uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756
+
       - name: Download Draft Release assets
         shell: bash
         env:
@@ -507,6 +520,36 @@ jobs:
           cd tools/fixtures/release_http_consumer
           dart pub get
           dart run bin/main.dart
+
+      - name: Run downloaded Windows Rust consumer
+        if: matrix.kind == 'windows'
+        run: |
+          version="$(cat VERSION)"
+          mkdir -p "build/release-download/v$version"
+          find build/release-download -maxdepth 1 -type f \
+            -exec cp {} "build/release-download/v$version/" \;
+          python -m http.server 8126 --directory build/release-download >build/release-rust-http.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid"' EXIT
+          for attempt in $(seq 1 20); do
+            if curl --fail --silent "http://127.0.0.1:8126/v$version/cel-bridge-manifest-v$version.json" >/dev/null; then break; fi
+            sleep 1
+          done
+          CEL_BRIDGE_RELEASE_BASE_URL=http://127.0.0.1:8126 \
+            CEL_BRIDGE_ALLOW_INSECURE_RELEASE_BASE=1 \
+            cargo build --manifest-path tools/fixtures/rust-release-consumer/Cargo.toml --quiet
+          python - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile
+
+          version = Path('VERSION').read_text().strip()
+          archive = Path('build/release-download') / f'cel-bridge-rust-windows-x86_64-v{version}.zip'
+          binary = Path('tools/fixtures/rust-release-consumer/target/debug/cel-bridge-rust-release-consumer.exe')
+          with ZipFile(archive) as package:
+              name = next(name for name in package.namelist() if Path(name).name == 'cel_bridge.dll')
+              (binary.parent / 'cel_bridge.dll').write_bytes(package.read(name))
+          PY
+          tools/fixtures/rust-release-consumer/target/debug/cel-bridge-rust-release-consumer.exe
 
       - name: Prepare downloaded Android example
         if: matrix.kind == 'android'

@@ -6,7 +6,6 @@ use std::fs;
 use std::io::{Cursor, Read};
 use std::path::{Component, Path, PathBuf};
 use tar::Archive;
-use ureq::Agent;
 use zip::ZipArchive;
 
 pub fn from_directory(
@@ -29,19 +28,36 @@ pub fn from_directory(
         })?;
     let output = out_dir.join(target.library);
     fs::copy(source, &output).map_err(|error| format!("copy artifact: {error}"))?;
+    if let Some(import_library) = target.import_library {
+        let import_source = source
+            .parent()
+            .ok_or_else(|| "artifact has no parent directory".to_string())?
+            .join(import_library);
+        if !import_source.is_file() {
+            return Err(format!(
+                "artifact directory has no {} for {}",
+                import_library, target.name
+            ));
+        }
+        fs::copy(&import_source, out_dir.join(import_library))
+            .map_err(|error| format!("copy import library: {error}"))?;
+    }
     Ok(output)
 }
 
 pub fn from_release(target: &Target, out_dir: &Path) -> Result<PathBuf, String> {
     let base = env::var("CEL_BRIDGE_RELEASE_BASE_URL")
         .unwrap_or_else(|_| "https://github.com/0xfe10/cel-bridge/releases/download".to_string());
-    if !base.starts_with("https://") && !is_true("CEL_BRIDGE_ALLOW_INSECURE_RELEASE_BASE") {
+    let local_http = is_local_http_url(&base);
+    if !base.starts_with("https://")
+        && !(is_true("CEL_BRIDGE_ALLOW_INSECURE_RELEASE_BASE") && local_http)
+    {
         return Err("release base URL must use HTTPS".to_string());
     }
     let version = env!("CARGO_PKG_VERSION");
     let manifest_name = format!("cel-bridge-manifest-v{version}.json");
     let manifest_url = format!("{}/v{version}/{manifest_name}", base.trim_end_matches('/'));
-    let manifest = get(&manifest_url)?;
+    let manifest = get(&manifest_url, local_http)?;
     let manifest: serde_json::Value = serde_json::from_slice(&manifest)
         .map_err(|error| format!("invalid release manifest: {error}"))?;
     if manifest["manifestVersion"] != 2
@@ -69,7 +85,10 @@ pub fn from_release(target: &Target, out_dir: &Path) -> Result<PathBuf, String> 
     }) {
         return Err("release artifact filename is unsafe".to_string());
     }
-    let bytes = get(&format!("{}/v{version}/{file}", base.trim_end_matches('/')))?;
+    let bytes = get(
+        &format!("{}/v{version}/{file}", base.trim_end_matches('/')),
+        local_http,
+    )?;
     let expected = entry["sha256"]
         .as_str()
         .ok_or("release manifest sha256 is not a string")?;
@@ -88,11 +107,17 @@ pub fn from_release(target: &Target, out_dir: &Path) -> Result<PathBuf, String> 
     }
     let output = out_dir.join(target.library);
     extract(file, &bytes, target.library, &output)?;
+    if let Some(import_library) = target.import_library {
+        extract(file, &bytes, import_library, &out_dir.join(import_library))?;
+    }
     Ok(output)
 }
 
-fn get(url: &str) -> Result<Vec<u8>, String> {
-    let response = Agent::new()
+fn get(url: &str, local_http: bool) -> Result<Vec<u8>, String> {
+    let response = ureq::AgentBuilder::new()
+        .https_only(!local_http)
+        .redirects(if local_http { 0 } else { 5 })
+        .build()
         .get(url)
         .call()
         .map_err(|error| format!("download {url}: {error}"))?;
@@ -102,6 +127,16 @@ fn get(url: &str) -> Result<Vec<u8>, String> {
         .read_to_end(&mut bytes)
         .map_err(|error| format!("read {url}: {error}"))?;
     Ok(bytes)
+}
+
+fn is_local_http_url(url: &str) -> bool {
+    let Some(authority) = url.strip_prefix("http://") else {
+        return false;
+    };
+    let authority = authority.split('/').next().unwrap_or(authority);
+    let host = authority.rsplit('@').next().unwrap_or(authority);
+    let host = host.split(':').next().unwrap_or(host);
+    host == "localhost" || host == "127.0.0.1"
 }
 
 fn extract(

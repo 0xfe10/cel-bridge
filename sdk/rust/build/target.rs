@@ -4,6 +4,7 @@ pub struct Target {
     pub goos: &'static str,
     pub goarch: &'static str,
     pub library: &'static str,
+    pub import_library: Option<&'static str>,
     pub static_linking: bool,
 }
 
@@ -14,6 +15,7 @@ pub fn from_triple(triple: &str) -> Result<Target, String> {
             goos: "linux",
             goarch: "amd64",
             library: "libcel_bridge.a",
+            import_library: None,
             static_linking: true,
         },
         "aarch64-unknown-linux-gnu" => Target {
@@ -21,6 +23,7 @@ pub fn from_triple(triple: &str) -> Result<Target, String> {
             goos: "linux",
             goarch: "arm64",
             library: "libcel_bridge.a",
+            import_library: None,
             static_linking: true,
         },
         "x86_64-apple-darwin" => Target {
@@ -28,6 +31,7 @@ pub fn from_triple(triple: &str) -> Result<Target, String> {
             goos: "darwin",
             goarch: "amd64",
             library: "libcel_bridge.a",
+            import_library: None,
             static_linking: true,
         },
         "aarch64-apple-darwin" => Target {
@@ -35,13 +39,15 @@ pub fn from_triple(triple: &str) -> Result<Target, String> {
             goos: "darwin",
             goarch: "arm64",
             library: "libcel_bridge.a",
+            import_library: None,
             static_linking: true,
         },
-        "x86_64-pc-windows-msvc" | "x86_64-pc-windows-gnu" => Target {
+        "x86_64-pc-windows-msvc" => Target {
             name: "windows-x86_64",
             goos: "windows",
             goarch: "amd64",
             library: "cel_bridge.dll",
+            import_library: Some("cel_bridge.lib"),
             static_linking: false,
         },
         "aarch64-linux-android" => Target {
@@ -49,6 +55,7 @@ pub fn from_triple(triple: &str) -> Result<Target, String> {
             goos: "android",
             goarch: "arm64",
             library: "libcel_bridge.so",
+            import_library: None,
             static_linking: false,
         },
         "armv7-linux-androideabi" => Target {
@@ -56,6 +63,7 @@ pub fn from_triple(triple: &str) -> Result<Target, String> {
             goos: "android",
             goarch: "arm",
             library: "libcel_bridge.so",
+            import_library: None,
             static_linking: false,
         },
         "x86_64-linux-android" => Target {
@@ -63,6 +71,7 @@ pub fn from_triple(triple: &str) -> Result<Target, String> {
             goos: "android",
             goarch: "amd64",
             library: "libcel_bridge.so",
+            import_library: None,
             static_linking: false,
         },
         "aarch64-apple-ios" => Target {
@@ -70,6 +79,7 @@ pub fn from_triple(triple: &str) -> Result<Target, String> {
             goos: "ios",
             goarch: "arm64",
             library: "libcel_bridge.a",
+            import_library: None,
             static_linking: true,
         },
         "aarch64-apple-ios-sim" => Target {
@@ -77,6 +87,7 @@ pub fn from_triple(triple: &str) -> Result<Target, String> {
             goos: "ios",
             goarch: "arm64",
             library: "libcel_bridge.a",
+            import_library: None,
             static_linking: true,
         },
         "x86_64-apple-ios" => Target {
@@ -84,6 +95,7 @@ pub fn from_triple(triple: &str) -> Result<Target, String> {
             goos: "ios",
             goarch: "amd64",
             library: "libcel_bridge.a",
+            import_library: None,
             static_linking: true,
         },
         other => return Err(format!("unsupported Rust target {other}")),

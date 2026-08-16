@@ -1,6 +1,6 @@
 #import "CelBridgePlugin.h"
 
-#include "../../../abi/cel_bridge.h"
+#include "cel_bridge.h"
 #import <dispatch/dispatch.h>
 
 static FlutterError *CelBridgeError(NSString *message) {
