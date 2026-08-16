@@ -287,7 +287,8 @@ Future<ArtifactBuild> buildNativeArtifact({
   if (!rawFile.existsSync()) {
     throw StateError('Go build did not produce ${rawFile.path}');
   }
-  final importLibrary = target.goos == 'windows' && target.name.startsWith('rust-')
+  final importLibrary =
+      target.goos == 'windows' && target.name.startsWith('rust-')
       ? await _buildWindowsImportLibrary(root, rawFile)
       : null;
   await File(
