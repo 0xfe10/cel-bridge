@@ -576,6 +576,16 @@ jobs:
           cp -R example/flutter_app build/release-android-example
           python3 -c "from pathlib import Path; p=Path('build/release-android-example/pubspec.yaml'); s=p.read_text(); old='      build_from_source: true'; new='      release_base_url: http://127.0.0.1:8125/\\n      allow_insecure_release_base: true'; assert old in s, 'example hook configuration changed'; p.write_text(s.replace(old, new))"
 
+      - name: Enable KVM group perms
+        if: matrix.kind == 'android'
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
       - name: Run downloaded Android runtime integration test
         if: matrix.kind == 'android'
         uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
