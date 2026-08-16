@@ -289,9 +289,9 @@ jobs:
           disable-animations: true
           script: |
             set -eu
+            cd "$GITHUB_WORKSPACE/examples/flutter-app"
+            flutter test --no-pub integration_test/runtime_test.dart -d emulator-5554
             cd "$GITHUB_WORKSPACE"
-            flutter test --project-root examples/flutter-app \
-              integration_test/runtime_test.dart -d emulator-5554
             adb push sdk/rust/tests-platform/android/target/x86_64-linux-android/debug/cel-bridge-android-smoke /data/local/tmp/cel-bridge-android-smoke
             library="$(find sdk/rust/tests-platform/android/target -name libcel_bridge.so -type f | head -n 1)"
             test -n "$library"
