@@ -4,6 +4,9 @@ Cross-platform CEL evaluation for Dart and Flutter. The Go runtime is exposed
 through one JSON wire protocol and is available through native C ABI or Go
 Wasm. The Dart API never exposes `cel-go` types.
 
+面向接入方的完整 Dart/Flutter 文档见
+[Dart / Flutter 集成指南](docs/dart-integration.md)。
+
 Version `0.1.0` supports Linux x86_64, Android, macOS, iOS, Windows x86_64,
 and Web. Linux and Windows ARM64 release assets are deferred from v1 and are
 rejected explicitly until matching artifacts and CI exist. Native consumers use
