@@ -166,5 +166,143 @@
         }
       ]
     }
+  },
+  {
+    "name": "int64 maximum",
+    "environment": {
+      "schemaVersion": 1,
+      "variables": {"number": {"type": "int"}}
+    },
+    "source": "number",
+    "variables": {
+      "number": {
+        "$cel_bridge": true,
+        "kind": "int",
+        "value": "9223372036854775807"
+      }
+    },
+    "expected": {"kind": "int", "value": "9223372036854775807"}
+  },
+  {
+    "name": "uint64 maximum",
+    "environment": {
+      "schemaVersion": 1,
+      "variables": {"number": {"type": "uint"}}
+    },
+    "source": "number",
+    "variables": {
+      "number": {
+        "$cel_bridge": true,
+        "kind": "uint",
+        "value": "18446744073709551615"
+      }
+    },
+    "expected": {"kind": "uint", "value": "18446744073709551615"}
+  },
+  {
+    "name": "not a number",
+    "environment": {
+      "schemaVersion": 1,
+      "variables": {"number": {"type": "double"}}
+    },
+    "source": "number",
+    "variables": {
+      "number": {"$cel_bridge": true, "kind": "double", "value": "NaN"}
+    },
+    "expected": {"kind": "double", "value": "NaN"}
+  },
+  {
+    "name": "positive infinity",
+    "environment": {
+      "schemaVersion": 1,
+      "variables": {"number": {"type": "double"}}
+    },
+    "source": "number",
+    "variables": {
+      "number": {
+        "$cel_bridge": true,
+        "kind": "double",
+        "value": "Infinity"
+      }
+    },
+    "expected": {"kind": "double", "value": "Infinity"}
+  },
+  {
+    "name": "nested list value",
+    "environment": {
+      "schemaVersion": 1,
+      "variables": {
+        "groups": {
+          "type": "list",
+          "element": {"type": "list", "element": {"type": "string"}}
+        }
+      }
+    },
+    "source": "groups",
+    "variables": {"groups": [["a", "b"], ["c"]]},
+    "expected": {
+      "kind": "list",
+      "items": [
+        {
+          "kind": "list",
+          "items": [
+            {"kind": "string", "value": "a"},
+            {"kind": "string", "value": "b"}
+          ]
+        },
+        {"kind": "list", "items": [{"kind": "string", "value": "c"}]}
+      ]
+    }
+  },
+  {
+    "name": "integer key map",
+    "environment": {
+      "schemaVersion": 1,
+      "variables": {
+        "scores": {
+          "type": "map",
+          "key": {"type": "int"},
+          "value": {"type": "string"}
+        }
+      }
+    },
+    "source": "scores",
+    "variables": {
+      "scores": {
+        "$cel_bridge": true,
+        "kind": "map",
+        "entries": [
+          {
+            "key": {"$cel_bridge": true, "kind": "int", "value": "2"},
+            "value": {
+              "$cel_bridge": true,
+              "kind": "string",
+              "value": "two"
+            }
+          },
+          {
+            "key": {"$cel_bridge": true, "kind": "int", "value": "1"},
+            "value": {
+              "$cel_bridge": true,
+              "kind": "string",
+              "value": "one"
+            }
+          }
+        ]
+      }
+    },
+    "expected": {
+      "kind": "map",
+      "entries": [
+        {
+          "key": {"kind": "int", "value": "1"},
+          "value": {"kind": "string", "value": "one"}
+        },
+        {
+          "key": {"kind": "int", "value": "2"},
+          "value": {"kind": "string", "value": "two"}
+        }
+      ]
+    }
   }
 ]

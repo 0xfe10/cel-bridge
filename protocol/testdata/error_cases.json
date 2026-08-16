@@ -28,5 +28,27 @@
     "variables": {},
     "operation": "evaluate",
     "expectedCode": "invalid_environment"
+  },
+  {
+    "name": "compile error during evaluation",
+    "environment": {
+      "schemaVersion": 1,
+      "variables": {"age": {"type": "int"}}
+    },
+    "source": "age +",
+    "variables": {"age": 20},
+    "operation": "evaluate",
+    "expectedCode": "compile_error"
+  },
+  {
+    "name": "evaluation error",
+    "environment": {
+      "schemaVersion": 1,
+      "variables": {"age": {"type": "int"}}
+    },
+    "source": "age / 0",
+    "variables": {"age": 20},
+    "operation": "evaluate",
+    "expectedCode": "evaluation_error"
   }
 ]

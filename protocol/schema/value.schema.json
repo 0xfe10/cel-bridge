@@ -1,0 +1,106 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/0xfe10/cel-bridge/protocol/schema/value.schema.json",
+  "title": "cel-bridge tagged CEL value",
+  "$ref": "#/$defs/value",
+  "$defs": {
+    "marker": {"const": true},
+    "value": {
+      "oneOf": [
+        {"$ref": "#/$defs/null"},
+        {"$ref": "#/$defs/bool"},
+        {"$ref": "#/$defs/int"},
+        {"$ref": "#/$defs/uint"},
+        {"$ref": "#/$defs/double"},
+        {"$ref": "#/$defs/string"},
+        {"$ref": "#/$defs/bytes"},
+        {"$ref": "#/$defs/timestamp"},
+        {"$ref": "#/$defs/duration"},
+        {"$ref": "#/$defs/list"},
+        {"$ref": "#/$defs/map"}
+      ]
+    },
+    "base": {
+      "type": "object",
+      "required": ["kind"],
+      "properties": {
+        "$cel_bridge": {"$ref": "#/$defs/marker"},
+        "kind": {"type": "string"}
+      }
+    },
+    "null": {
+      "allOf": [{"$ref": "#/$defs/base"}],
+      "properties": {"kind": {"const": "null"}}
+    },
+    "bool": {
+      "allOf": [{"$ref": "#/$defs/base"}],
+      "required": ["kind", "value"],
+      "properties": {"kind": {"const": "bool"}, "value": {"type": "boolean"}}
+    },
+    "int": {
+      "allOf": [{"$ref": "#/$defs/base"}],
+      "required": ["kind", "value"],
+      "properties": {"kind": {"const": "int"}, "value": {"pattern": "^-?[0-9]+$"}}
+    },
+    "uint": {
+      "allOf": [{"$ref": "#/$defs/base"}],
+      "required": ["kind", "value"],
+      "properties": {"kind": {"const": "uint"}, "value": {"pattern": "^[0-9]+$"}}
+    },
+    "double": {
+      "allOf": [{"$ref": "#/$defs/base"}],
+      "required": ["kind", "value"],
+      "properties": {
+        "kind": {"const": "double"},
+        "value": {"type": "string"}
+      }
+    },
+    "string": {
+      "allOf": [{"$ref": "#/$defs/base"}],
+      "required": ["kind", "value"],
+      "properties": {"kind": {"const": "string"}, "value": {"type": "string"}}
+    },
+    "bytes": {
+      "allOf": [{"$ref": "#/$defs/base"}],
+      "required": ["kind", "value"],
+      "properties": {"kind": {"const": "bytes"}, "value": {"type": "string"}}
+    },
+    "timestamp": {
+      "allOf": [{"$ref": "#/$defs/base"}],
+      "required": ["kind", "value"],
+      "properties": {"kind": {"const": "timestamp"}, "value": {"type": "string"}}
+    },
+    "duration": {
+      "allOf": [{"$ref": "#/$defs/base"}],
+      "required": ["kind", "value"],
+      "properties": {"kind": {"const": "duration"}, "value": {"type": "string"}}
+    },
+    "list": {
+      "allOf": [{"$ref": "#/$defs/base"}],
+      "required": ["kind", "items"],
+      "properties": {
+        "kind": {"const": "list"},
+        "items": {"type": "array", "items": {"$ref": "#/$defs/value"}}
+      }
+    },
+    "map": {
+      "allOf": [{"$ref": "#/$defs/base"}],
+      "required": ["kind", "entries"],
+      "properties": {
+        "kind": {"const": "map"},
+        "entries": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["key", "value"],
+            "properties": {
+              "key": {"$ref": "#/$defs/value"},
+              "value": {"$ref": "#/$defs/value"}
+            }
+          }
+        }
+      }
+    }
+  }
+}

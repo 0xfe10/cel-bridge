@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/0xfe10/cel-bridge/protocol/schema/environment.schema.json",
+  "title": "cel-bridge environment",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "variables"],
+  "properties": {
+    "schemaVersion": {"const": 1},
+    "variables": {
+      "type": "object",
+      "additionalProperties": {"$ref": "#/$defs/typeSpec"}
+    }
+  },
+  "$defs": {
+    "typeSpec": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "enum": [
+            "null",
+            "bool",
+            "int",
+            "uint",
+            "double",
+            "string",
+            "bytes",
+            "timestamp",
+            "duration",
+            "dyn",
+            "list",
+            "map"
+          ]
+        },
+        "element": {"$ref": "#/$defs/typeSpec"},
+        "key": {"$ref": "#/$defs/typeSpec"},
+        "value": {"$ref": "#/$defs/typeSpec"}
+      }
+    }
+  }
+}
