@@ -161,10 +161,10 @@ fn compiler_environment(target: &Target) -> Result<Vec<(&'static str, String)>, 
             ("CGO_LDFLAGS", format!("-isysroot {sdk}")),
         ]);
     }
-    if matches!(target.goos, "linux" | "android") {
-        if let Some(compiler) = env::var_os("CEL_BRIDGE_CROSS_CC") {
-            return Ok(vec![("CC", compiler.to_string_lossy().into_owned())]);
-        }
+    if matches!(target.goos, "linux" | "android")
+        && let Some(compiler) = env::var_os("CEL_BRIDGE_CROSS_CC")
+    {
+        return Ok(vec![("CC", compiler.to_string_lossy().into_owned())]);
     }
     if target.goos != "ios" {
         return Ok(Vec::new());
