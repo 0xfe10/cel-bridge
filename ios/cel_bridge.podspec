@@ -55,30 +55,53 @@ test -n "$build_root"
 root="$build_root/cel_bridge"
 mkdir -p "$root"
 framework="$root/libcel_bridge.xcframework"
+version="#{version}"
+marker="$root/.cel_bridge-$version.sha256"
+tmp_root="$root/.cel_bridge-download.$$"
+cleanup() {
+  /bin/rm -rf "$tmp_root"
+}
+trap cleanup EXIT
+if [ "${PLATFORM_NAME:-}" = 'iphonesimulator' ]; then
+  library_subpath='ios-arm64_x86_64-simulator'
+else
+  library_subpath='ios-arm64'
+fi
 local="${CEL_BRIDGE_IOS_XCFRAMEWORK_PATH:-}"
 if [ -n "$local" ]; then
   test -d "$local"
+  /bin/rm -rf "$framework"
   /usr/bin/ditto "$local" "$framework"
 else
-  archive="$root/#{archive_name}"
-  if [ ! -d "$framework" ]; then
-    url="${CEL_BRIDGE_IOS_XCFRAMEWORK_URL:-#{release_base}/#{archive_name}}"
+  url="${CEL_BRIDGE_IOS_XCFRAMEWORK_URL:-#{release_base}/#{archive_name}}"
+  checksum_url="${CEL_BRIDGE_IOS_XCFRAMEWORK_CHECKSUM_URL:-#{release_base}/checksums.txt}"
+  expected="${CEL_BRIDGE_IOS_XCFRAMEWORK_SHA256:-}"
+  if [ -z "$expected" ]; then
+    expected="$(download "$checksum_url" | /usr/bin/awk -v name="#{archive_name}" '$2 == name { print $1 }')"
+  fi
+  test -n "$expected"
+  cached=false
+  if [ -d "$framework" ] && [ -f "$marker" ] &&
+      [ "$(/bin/cat "$marker")" = "$expected" ] &&
+      [ -n "$(/usr/bin/find "$framework" -path "*/$library_subpath/libcel_bridge.a" -print -quit)" ]; then
+    cached=true
+  fi
+  if [ "$cached" != true ]; then
+    /bin/rm -rf "$tmp_root"
+    mkdir -p "$tmp_root"
+    archive="$tmp_root/#{archive_name}"
     download "$url" -o "$archive"
-    checksum_url="${CEL_BRIDGE_IOS_XCFRAMEWORK_CHECKSUM_URL:-#{release_base}/checksums.txt}"
-    expected="${CEL_BRIDGE_IOS_XCFRAMEWORK_SHA256:-}"
-    if [ -z "$expected" ]; then
-      expected="$(download "$checksum_url" | /usr/bin/awk -v name="#{archive_name}" '$2 == name { print $1 }')"
-    fi
-    test -n "$expected"
     printf '%s  %s\\n' "$expected" "$archive" | /usr/bin/shasum -a 256 -c -
-    /usr/bin/ditto -x -k "$archive" "$root"
+    /usr/bin/ditto -x -k "$archive" "$tmp_root"
+    temp_framework="$tmp_root/libcel_bridge.xcframework"
+    test -d "$temp_framework"
+    test -n "$(/usr/bin/find "$temp_framework" -path "*/$library_subpath/libcel_bridge.a" -print -quit)"
+    /bin/rm -rf "$framework"
+    /bin/mv "$temp_framework" "$framework"
+    printf '%s\\n' "$expected" > "$marker"
   fi
 fi
-if [ "${PLATFORM_NAME:-}" = 'iphonesimulator' ]; then
-  library="$(/usr/bin/find "$framework" -path '*/ios-arm64_x86_64-simulator/libcel_bridge.a' -print -quit)"
-else
-  library="$(/usr/bin/find "$framework" -path '*/ios-arm64/libcel_bridge.a' -print -quit)"
-fi
+library="$(/usr/bin/find "$framework" -path "*/$library_subpath/libcel_bridge.a" -print -quit)"
 test -n "$library"
 /bin/cp "$library" "$root/libcel_bridge.a"
 SCRIPT
