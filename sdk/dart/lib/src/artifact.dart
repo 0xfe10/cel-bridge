@@ -500,8 +500,7 @@ String _artifactArchitecture(String target) {
 String _artifactLinkage(String target, bool rust) {
   if (target == 'wasm') return 'wasm';
   if (target == 'ios-xcframework') return 'static';
-  if (rust &&
-      (target.startsWith('linux-') || target.startsWith('macos-'))) {
+  if (rust && (target.startsWith('linux-') || target.startsWith('macos-'))) {
     return 'static';
   }
   if (rust && target.startsWith('ios-')) return 'static';
