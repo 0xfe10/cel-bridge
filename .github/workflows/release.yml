@@ -306,27 +306,14 @@ jobs:
             "repos/$GITHUB_REPOSITORY/commits/$RELEASE_TAG" \
             --jq .sha)"
           test "$tag_commit" = "$RELEASE_COMMIT"
-          release_response="$(gh api --include \
-            "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG" \
-            2>/dev/null || true)"
-          release_response="${release_response//$'\r'/}"
-          release_status="$(sed -n \
-            's/^HTTP\/[^ ]* \([0-9][0-9][0-9]\).*/\1/p' <<<"$release_response" \
-            | head -n 1)"
-          case "$release_status" in
-            200)
-              release_draft="$(awk \
-                'BEGIN { body = 0 } body { print } /^$/ { body = 1 }' \
-                <<<"$release_response" | jq -r .draft)"
-              test "$release_draft" = true
-              ;;
-            404)
-              ;;
-            *)
-              echo "unexpected release lookup status: $release_status" >&2
-              exit 1
-              ;;
-          esac
+          existing_release_draft="$(gh release view \
+            "$RELEASE_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --json isDraft \
+            --jq .isDraft 2>/dev/null || true)"
+          if [[ -n "$existing_release_draft" ]]; then
+            test "$existing_release_draft" = true
+          fi
 
       - name: Create Draft Release
         uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228
@@ -652,9 +639,11 @@ jobs:
             "repos/$GITHUB_REPOSITORY/compare/$RELEASE_COMMIT...main" \
             --jq .status)"
           [[ "$main_comparison" == "ahead" || "$main_comparison" == "identical" ]]
-          test "$(gh api \
-            "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG" \
-            --jq .draft)" = true
+          test "$(gh release view \
+            "$RELEASE_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --json isDraft \
+            --jq .isDraft)" = true
 
       - name: Publish verified Release
         uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228
