@@ -12,5 +12,6 @@ dependencies:
 hooks:
   user_defines:
     cel_bridge:
+      build_from_source: false
       release_base_url: http://127.0.0.1:8125/
       allow_insecure_release_base: true

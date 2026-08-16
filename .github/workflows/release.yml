@@ -13,7 +13,6 @@ on:
 
 permissions:
   contents: read
-  actions: read
 
 concurrency:
   group: release-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
@@ -33,16 +32,19 @@ jobs:
           ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/tags/{0}', inputs.tag) || github.sha }}
           persist-credentials: false
 
+      - name: Set up Go
+        uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00
+        with:
+          go-version: '1.26.5'
+          cache: true
+
       - name: Set up Flutter
         uses: subosito/flutter-action@1508160852fb97248640997f7cfb38da241df0ba
         with:
           channel: stable
           cache: true
 
-      - name: Get Dart dependencies
-        run: dart pub get
-
-      - name: Verify tag and package versions
+      - name: Verify tag and versions
         id: version
         shell: bash
         env:
@@ -53,16 +55,16 @@ jobs:
           [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]
           test -z "$(git status --short)"
           release_commit="$(git rev-parse HEAD)"
-          tag_commit="$(gh api \
-            "repos/$GITHUB_REPOSITORY/commits/$RELEASE_TAG" \
-            --jq .sha)"
+          tag_commit="$(gh api "repos/$GITHUB_REPOSITORY/commits/$RELEASE_TAG" --jq .sha)"
           test "$tag_commit" = "$release_commit"
-          dart run tool/verify_versions.dart --tag "$RELEASE_TAG"
-          echo "version=$(cat VERSION)" >> "$GITHUB_OUTPUT"
+          cd tools
+          dart pub get
+          dart run bin/verify_versions.dart --tag "$RELEASE_TAG"
+          echo "version=$(cat ../VERSION)" >> "$GITHUB_OUTPUT"
           echo "tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
           echo "commit=$release_commit" >> "$GITHUB_OUTPUT"
 
-      - name: Require successful CI for release commit
+      - name: Require successful Check workflow
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -76,10 +78,10 @@ jobs:
             --json status,conclusion \
             --jq '[.[] | select(.status == "completed" and .conclusion == "success")] | length')"
           test "$successful_runs" -ge 1
-          main_comparison="$(gh api \
+          comparison="$(gh api \
             "repos/$GITHUB_REPOSITORY/compare/$RELEASE_COMMIT...main" \
             --jq .status)"
-          [[ "$main_comparison" == "ahead" || "$main_comparison" == "identical" ]]
+          [[ "$comparison" == "ahead" || "$comparison" == "identical" ]]
 
   build:
     needs: version
@@ -87,38 +89,21 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: linux-x86_64
+          - name: linux
             runner: ubuntu-latest
-            kind: native
-            target: linux-x86_64
-          - name: android-arm64-v8a
-            runner: ubuntu-latest
-            kind: android
-            target: android-arm64-v8a
-          - name: android-armeabi-v7a
+            kind: linux
+          - name: android
             runner: ubuntu-latest
             kind: android
-            target: android-armeabi-v7a
-          - name: android-x86_64
-            runner: ubuntu-latest
-            kind: android
-            target: android-x86_64
-          - name: macos-arm64
+          - name: apple
             runner: macos-14
-            kind: native
-            target: macos-arm64
-          - name: ios-arm64
-            runner: macos-14
-            kind: ios
-            target: ios-arm64
-          - name: windows-x86_64
+            kind: apple
+          - name: windows
             runner: windows-latest
-            kind: native
-            target: windows-x86_64
-          - name: wasm
+            kind: windows
+          - name: web
             runner: ubuntu-latest
-            kind: wasm
-            target: wasm
+            kind: web
     runs-on: ${{ matrix.runner }}
     defaults:
       run:
@@ -142,79 +127,115 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Select Android NDK compiler
-        if: matrix.kind == 'android'
-        shell: bash
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Prepare Linux compilers
+        if: matrix.kind == 'linux'
         run: |
-          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu
+          rustup target add aarch64-unknown-linux-gnu
+
+      - name: Prepare Android compilers
+        if: matrix.kind == 'android'
+        run: |
           sdk_root="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}"
           ndk="$(find "$sdk_root/ndk" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
           test -n "$ndk"
           echo "ANDROID_NDK_ROOT=$ndk" >> "$GITHUB_ENV"
 
-      - name: Get Dart dependencies
-        run: dart pub get
-
-      - name: Build release artifact
+      - name: Build Linux Dart and Rust artifacts
+        if: matrix.kind == 'linux'
+        working-directory: tools
         run: |
-          set -euo pipefail
-          if [[ "${{ matrix.kind }}" == "wasm" ]]; then
-            dart run tool/build_artifact.dart --target wasm --output build/artifacts
-            cp build/artifacts/wasm/cel_bridge.wasm build/artifacts/
-            cp build/artifacts/wasm/wasm_exec.js build/artifacts/
-          elif [[ "${{ matrix.kind }}" == "android" ]]; then
-            case "${{ matrix.target }}" in
+          dart pub get
+          dart run bin/build_artifact.dart \
+            --target linux-x86_64 --output ../build/artifacts
+          CC=aarch64-linux-gnu-gcc \
+            dart run bin/build_artifact.dart \
+              --target linux-aarch64 --output ../build/artifacts
+          dart run bin/build_artifact.dart \
+            --target rust-linux-x86_64 --output ../build/artifacts
+          CC=aarch64-linux-gnu-gcc \
+            dart run bin/build_artifact.dart \
+              --target rust-linux-aarch64 --output ../build/artifacts
+
+      - name: Build Android Dart and Rust artifacts
+        if: matrix.kind == 'android'
+        working-directory: tools
+        run: |
+          dart pub get
+          for target in android-arm64-v8a android-armeabi-v7a android-x86_64; do
+            case "$target" in
               android-arm64-v8a) compiler=aarch64-linux-android21-clang ;;
               android-armeabi-v7a) compiler=armv7a-linux-androideabi21-clang ;;
               android-x86_64) compiler=x86_64-linux-android21-clang ;;
-              *) echo "unsupported Android target" >&2; exit 1 ;;
             esac
-            CC="$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/$compiler" \
-              dart run tool/build_artifact.dart \
-              --target "${{ matrix.target }}" --output build/artifacts
-          elif [[ "${{ matrix.kind }}" == "ios" ]]; then
-            CC="$(xcrun --sdk iphoneos --find clang)" \
-              dart run tool/build_artifact.dart \
-              --target "${{ matrix.target }}" --output build/artifacts
-            CC="$(xcrun --sdk iphonesimulator --find clang)" \
-              dart run tool/build_artifact.dart \
-              --target ios-arm64-simulator --output build/artifacts
-            CC="$(xcrun --sdk iphonesimulator --find clang)" \
-              dart run tool/build_artifact.dart \
-              --target ios-x86_64-simulator --output build/artifacts
-            mkdir -p build/artifacts/ios-simulator
-            lipo -create \
-              build/artifacts/ios-arm64-simulator/libcel_bridge.a \
-              build/artifacts/ios-x86_64-simulator/libcel_bridge.a \
-              -output build/artifacts/ios-simulator/libcel_bridge.a
-            xcodebuild -create-xcframework \
-              -library build/artifacts/ios-arm64/libcel_bridge.a \
-              -headers include \
-              -library build/artifacts/ios-simulator/libcel_bridge.a \
-              -headers include \
-              -output build/artifacts/libcel_bridge.xcframework
-            ditto -c -k --sequesterRsrc --keepParent \
-              build/artifacts/libcel_bridge.xcframework \
-              build/artifacts/cel-bridge-ios-xcframework-v$(cat VERSION).zip
-          elif [[ "${{ matrix.target }}" == "macos-arm64" ]]; then
-            dart run tool/build_artifact.dart \
-              --target macos-arm64 --output build/artifacts
-            dart run tool/build_artifact.dart \
-              --target macos-x86_64 --output build/artifacts
-            mkdir -p build/artifacts/macos-universal
-            lipo -create \
-              build/artifacts/macos-arm64/libcel_bridge.dylib \
-              build/artifacts/macos-x86_64/libcel_bridge.dylib \
-              -output build/artifacts/macos-universal/libcel_bridge.dylib
-            tar -czf \
-              build/artifacts/cel-bridge-macos-universal-v$(cat VERSION).tar.gz \
-              -C build/artifacts/macos-universal libcel_bridge.dylib
-          else
-            dart run tool/build_artifact.dart \
-              --target "${{ matrix.target }}" --output build/artifacts
-          fi
+            cc="$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/$compiler"
+            CC="$cc" dart run bin/build_artifact.dart \
+              --target "$target" --output ../build/artifacts
+            CC="$cc" dart run bin/build_artifact.dart \
+              --target "rust-$target" --output ../build/artifacts
+          done
 
-      - name: Upload release artifact
+      - name: Build Apple Dart and Rust artifacts
+        if: matrix.kind == 'apple'
+        working-directory: tools
+        run: |
+          dart pub get
+          for target in macos-arm64 macos-x86_64 ios-arm64 ios-arm64-simulator ios-x86_64-simulator; do
+            dart run bin/build_artifact.dart \
+              --target "$target" --output ../build/artifacts
+            dart run bin/build_artifact.dart \
+              --target "rust-$target" --output ../build/artifacts
+          done
+          mkdir -p ../build/artifacts/ios-simulator
+          lipo -create \
+            ../build/artifacts/ios-arm64-simulator/libcel_bridge.a \
+            ../build/artifacts/ios-x86_64-simulator/libcel_bridge.a \
+            -output ../build/artifacts/ios-simulator/libcel_bridge.a
+          xcodebuild -create-xcframework \
+            -library ../build/artifacts/ios-arm64/libcel_bridge.a \
+            -headers ../abi \
+            -library ../build/artifacts/ios-simulator/libcel_bridge.a \
+            -headers ../abi \
+            -output ../build/artifacts/libcel_bridge.xcframework
+          ditto -c -k --sequesterRsrc --keepParent \
+            ../build/artifacts/libcel_bridge.xcframework \
+            ../build/artifacts/cel-bridge-ios-xcframework-v$(cat ../VERSION).zip
+          ditto -c -k --sequesterRsrc --keepParent \
+            ../build/artifacts/libcel_bridge.xcframework \
+            ../build/artifacts/cel-bridge-rust-ios-xcframework-v$(cat ../VERSION).zip
+          mkdir -p ../build/artifacts/macos-universal
+          lipo -create \
+            ../build/artifacts/macos-arm64/libcel_bridge.dylib \
+            ../build/artifacts/macos-x86_64/libcel_bridge.dylib \
+            -output ../build/artifacts/macos-universal/libcel_bridge.dylib
+          tar -czf \
+            ../build/artifacts/cel-bridge-macos-universal-v$(cat ../VERSION).tar.gz \
+            -C ../build/artifacts/macos-universal libcel_bridge.dylib
+
+      - name: Build Windows Dart and Rust artifacts
+        if: matrix.kind == 'windows'
+        working-directory: tools
+        run: |
+          dart pub get
+          dart run bin/build_artifact.dart \
+            --target windows-x86_64 --output ../build/artifacts
+          dart run bin/build_artifact.dart \
+            --target rust-windows-x86_64 --output ../build/artifacts
+
+      - name: Build Web Dart artifacts
+        if: matrix.kind == 'web'
+        working-directory: tools
+        run: |
+          dart pub get
+          dart run bin/build_artifact.dart --target wasm --output ../build/artifacts
+          cp ../build/artifacts/wasm/cel_bridge.wasm ../build/artifacts/
+          cp ../build/artifacts/wasm/wasm_exec.js ../build/artifacts/
+
+      - name: Upload platform artifacts
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: release-${{ matrix.name }}
@@ -246,46 +267,41 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Get Dart dependencies
-        run: dart pub get
-
-      - name: Download built artifacts
+      - name: Download platform artifacts
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           pattern: release-*
           path: build/artifacts
           merge-multiple: true
 
-      - name: Verify default Web integrity
+      - name: Prepare and verify release files
+        working-directory: tools
         run: |
-          dart run tool/verify_web_integrity.dart \
-            --wasm build/artifacts/cel_bridge.wasm \
-            --wasm-exec build/artifacts/wasm_exec.js
-
-      - name: Generate and verify manifest
-        run: |
-          set -euo pipefail
-          mkdir -p build/release
-          manifest="build/release/cel-bridge-manifest-v$(cat VERSION).json"
-          dart run tool/build_manifest.dart \
-            --input build/artifacts --output "$manifest"
-          dart run tool/verify_artifact.dart \
-            --manifest "$manifest" --input build/artifacts
-          find build/artifacts -maxdepth 1 -type f -exec cp {} build/release/ \;
-          version="$(cat VERSION)"
+          dart pub get
+          dart run bin/verify_web_integrity.dart \
+            --wasm ../build/artifacts/cel_bridge.wasm \
+            --wasm-exec ../build/artifacts/wasm_exec.js
+          mkdir -p ../build/release
+          manifest="../build/release/cel-bridge-manifest-v$(cat ../VERSION).json"
+          dart run bin/build_manifest.dart \
+            --input ../build/artifacts --output "$manifest"
+          dart run bin/verify_artifact.dart \
+            --manifest "$manifest" --input ../build/artifacts
+          find ../build/artifacts -maxdepth 1 -type f -exec cp {} ../build/release/ \;
+          version="$(cat ../VERSION)"
           git archive --format=tar.gz \
-            --prefix="cel-bridge-$version/" "${{ needs.version.outputs.commit }}" \
-            -o "build/release/cel-bridge-source-v$version.tar.gz"
-          : > build/release/checksums.txt
-          for file in build/release/*; do
-            [[ -f "$file" ]] || continue
-            name="$(basename "$file")"
-            [[ "$name" != "checksums.txt" ]] || continue
-            [[ "$name" != cel-bridge-manifest-*.json ]] || continue
-            (cd build/release && sha256sum "$name") \
-              >> build/release/checksums.txt
-          done
-          sort -k2 build/release/checksums.txt -o build/release/checksums.txt
+            --prefix="cel-bridge-runtime-source-$version/" \
+            -o "../build/release/cel-bridge-runtime-source-v$version.tar.gz" \
+            "${{ needs.version.outputs.commit }}" \
+            go.mod go.sum VERSION LICENSE abi runtime
+          : > ../build/release/checksums.txt
+          find ../build/release -maxdepth 1 -type f \
+            ! -name checksums.txt \
+            ! -name 'cel-bridge-manifest-*.json' \
+            -printf '%f\n' | sort | while read -r file; do
+              (cd ../build/release && sha256sum "$file") \
+                >> ../build/release/checksums.txt
+            done
 
       - name: Validate release target before mutation
         shell: bash
@@ -295,16 +311,9 @@ jobs:
           RELEASE_COMMIT: ${{ needs.version.outputs.commit }}
         run: |
           set -euo pipefail
-          tag_commit="$(gh api \
-            "repos/$GITHUB_REPOSITORY/commits/$RELEASE_TAG" \
-            --jq .sha)"
-          test "$tag_commit" = "$RELEASE_COMMIT"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/commits/$RELEASE_TAG" --jq .sha)" = "$RELEASE_COMMIT"
           set +e
-          release_lookup="$(gh release view \
-            "$RELEASE_TAG" \
-            --repo "$GITHUB_REPOSITORY" \
-            --json isDraft \
-            --jq .isDraft 2>&1)"
+          release_lookup="$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft 2>&1)"
           release_status=$?
           set -e
           if [[ "$release_status" -eq 0 ]]; then
@@ -329,24 +338,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
 
-      - name: Read back Draft assets for consumers
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          mkdir -p build/release-download
-          gh release download "${{ needs.version.outputs.tag }}" \
-            --repo "$GITHUB_REPOSITORY" \
-            --dir build/release-download
-
-      - name: Upload Draft assets for consumers
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        with:
-          name: release-download
-          path: build/release-download/*
-          if-no-files-found: error
-
   release-consumption:
     needs: [version, draft]
     runs-on: ubuntu-latest
@@ -359,111 +350,94 @@ jobs:
           ref: ${{ needs.version.outputs.commit }}
           persist-credentials: false
 
+      - name: Set up Go
+        uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00
+        with:
+          go-version: '1.26.5'
+          cache: true
+
       - name: Set up Flutter
         uses: subosito/flutter-action@1508160852fb97248640997f7cfb38da241df0ba
         with:
           channel: stable
           cache: true
 
-      - name: Get Dart dependencies
-        run: dart pub get
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
 
-      - name: Download read-back Draft assets
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
-        with:
-          name: release-download
-          path: build/release-download
-
-      - name: Verify downloaded release assets
+      - name: Download Draft Release assets
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          set -euo pipefail
-          dart run tool/verify_artifact.dart \
-            --manifest build/release-download/cel-bridge-manifest-v$(cat VERSION).json \
-            --input build/release-download
-          (cd build/release-download && sha256sum -c checksums.txt)
-          while IFS= read -r -d '' archive; do
-            name="$(basename "$archive")"
-            case "$archive" in
-              *.tar.gz) listing="$(tar -tzf "$archive")" ;;
-              *.zip) listing="$(unzip -Z1 "$archive")" ;;
-              *) echo "unsupported archive $archive" >&2; exit 1 ;;
-            esac
-            case "$name" in
-              cel-bridge-source-*)
-                grep -Eq '(^|/)go\.mod$' <<<"$listing"
-                ;;
-              cel-bridge-wasm-*)
-                grep -Eq '(^|/)cel_bridge\.wasm$' <<<"$listing"
-                grep -Eq '(^|/)wasm_exec\.js$' <<<"$listing"
-                ;;
-              *ios-xcframework*)
-                grep -Eq '(^|/)libcel_bridge\.a$' <<<"$listing"
-                ;;
-              *ios-*)
-                grep -Eq '(^|/)libcel_bridge\.a$' <<<"$listing"
-                ;;
-              *windows-*)
-                grep -Eq '(^|/)cel_bridge\.dll$' <<<"$listing"
-                ;;
-              *macos-*)
-                grep -Eq '(^|/)libcel_bridge\.dylib$' <<<"$listing"
-                ;;
-              *)
-                grep -Eq '(^|/)libcel_bridge\.so$' <<<"$listing"
-                ;;
-            esac
-          done < <(find build/release-download -maxdepth 1 -type f \
-            \( -name '*.tar.gz' -o -name '*.zip' \) -print0)
+          mkdir -p build/release-download
+          gh release download "${{ needs.version.outputs.tag }}" \
+            --repo "$GITHUB_REPOSITORY" --dir build/release-download
 
-      - name: Run downloaded Web release smoke
-        shell: bash
+      - name: Verify downloaded assets
+        working-directory: tools
         run: |
-          set -euo pipefail
-          mkdir -p build/release-web-host/normal build/release-web-host/retry
-          dart compile js tool/web_smoke.dart \
-            -o build/release-web-host/normal/main.dart.js
-          dart compile js tool/web_retry_smoke.dart \
-            -o build/release-web-host/retry/main.dart.js
-          cp tool/web_smoke.html build/release-web-host/normal/index.html
-          cp tool/web_retry_smoke.html build/release-web-host/retry/index.html
-          cp build/release-download/cel_bridge.wasm build/release-web-host/
-          cp build/release-download/wasm_exec.js build/release-web-host/
-          python3 -m http.server 8127 --directory build/release-web-host \
-            >build/release-web.log 2>&1 &
+          dart pub get
+          dart run bin/verify_artifact.dart \
+            --manifest ../build/release-download/cel-bridge-manifest-v$(cat ../VERSION).json \
+            --input ../build/release-download
+          (cd ../build/release-download && sha256sum -c checksums.txt)
+          test -f ../build/release-download/cel_bridge.wasm
+          test -f ../build/release-download/wasm_exec.js
+          tar -tzf ../build/release-download/cel-bridge-runtime-source-v$(cat ../VERSION).tar.gz \
+            | grep -Eq '(^|/)go\.mod$'
+
+      - name: Run downloaded Web smoke
+        working-directory: tools
+        run: |
+          mkdir -p ../build/release-web
+          dart compile js bin/web_smoke.dart -o ../build/release-web/main.dart.js
+          cp bin/web_smoke.html ../build/release-web/index.html
+          cp ../build/release-download/cel_bridge.wasm ../build/release-web/
+          cp ../build/release-download/wasm_exec.js ../build/release-web/
+          cd ..
+          python3 -m http.server 8127 --directory build/release-web >build/release-web.log 2>&1 &
           server_pid=$!
           trap 'kill "$server_pid"' EXIT
           for attempt in $(seq 1 20); do
-            if curl --fail --silent http://127.0.0.1:8127/normal/ \
-              >/dev/null; then break; fi
+            if curl --fail --silent http://127.0.0.1:8127/ >/dev/null; then break; fi
             sleep 1
           done
-          dart run tool/web_smoke_runner.dart \
-            http://127.0.0.1:8127/normal/ \
-            | tee build/release-web-host/normal/result.txt
-          grep -Fq '0.1.0|true|true' build/release-web-host/normal/result.txt
-          dart run tool/web_smoke_runner.dart \
-            http://127.0.0.1:8127/retry/ \
-            | tee build/release-web-host/retry/result.txt
-          grep -Fq 'retry|0.1.0|true' build/release-web-host/retry/result.txt
+          cd tools
+          dart run bin/web_smoke_runner.dart \
+            http://127.0.0.1:8127/ | tee ../build/release-web/result.txt
+          grep -Fq "${{ needs.version.outputs.version }}|true|true" \
+            ../build/release-web/result.txt
 
-      - name: Run release hook against downloaded Draft assets
-        shell: bash
+      - name: Run downloaded Dart consumer
         run: |
-          set -euo pipefail
-          python3 -m http.server 8125 --directory build/release-download \
-            >build/release-download/http.log 2>&1 &
+          python3 -m http.server 8125 --directory build/release-download >build/release-http.log 2>&1 &
           server_pid=$!
           trap 'kill "$server_pid"' EXIT
           for attempt in $(seq 1 20); do
-            if curl --fail --silent http://127.0.0.1:8125/ >/dev/null; then
-              break
-            fi
+            if curl --fail --silent http://127.0.0.1:8125/ >/dev/null; then break; fi
             sleep 1
           done
-          cd tool/release_http_consumer
+          cd tools/fixtures/release_http_consumer
           dart pub get
           dart run bin/main.dart
+
+      - name: Run downloaded Rust consumer
+        run: |
+          version="$(cat VERSION)"
+          mkdir -p "build/release-download/v$version"
+          find build/release-download -maxdepth 1 -type f \
+            -exec cp {} "build/release-download/v$version/" \;
+          python3 -m http.server 8126 --directory build/release-download >build/release-rust-http.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid"' EXIT
+          for attempt in $(seq 1 20); do
+            if curl --fail --silent "http://127.0.0.1:8126/v$version/cel-bridge-manifest-v$version.json" >/dev/null; then break; fi
+            sleep 1
+          done
+          CEL_BRIDGE_RELEASE_BASE_URL=http://127.0.0.1:8126 \
+            CEL_BRIDGE_ALLOW_INSECURE_RELEASE_BASE=1 \
+            cargo run --manifest-path tools/fixtures/rust-release-consumer/Cargo.toml --quiet
 
   release-platform-consumption:
     needs: [version, draft]
@@ -471,18 +445,21 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: windows
-            runner: windows-latest
-            kind: native
+          - name: linux
+            runner: ubuntu-latest
+            kind: linux
           - name: macos
             runner: macos-14
-            kind: native
-          - name: ios
-            runner: macos-14
-            kind: ios
+            kind: macos
+          - name: windows
+            runner: windows-latest
+            kind: windows
           - name: android
             runner: ubuntu-latest
             kind: android
+          - name: ios
+            runner: macos-14
+            kind: ios
     runs-on: ${{ matrix.runner }}
     permissions:
       contents: read
@@ -496,118 +473,67 @@ jobs:
           ref: ${{ needs.version.outputs.commit }}
           persist-credentials: false
 
+      - name: Set up Go
+        uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00
+        with:
+          go-version: '1.26.5'
+          cache: true
+
       - name: Set up Flutter
         uses: subosito/flutter-action@1508160852fb97248640997f7cfb38da241df0ba
         with:
           channel: stable
           cache: true
 
-      - name: Download read-back Draft assets
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
-        with:
-          name: release-download
-          path: build/release-download
-
-      - name: Run downloaded desktop platform smoke
-        if: matrix.kind == 'native'
+      - name: Download Draft Release assets
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          set -euo pipefail
-          python3 -m http.server 8125 --directory build/release-download \
-            >build/release-download/http.log 2>&1 &
+          mkdir -p build/release-download
+          gh release download "${{ needs.version.outputs.tag }}" \
+            --repo "$GITHUB_REPOSITORY" --dir build/release-download
+
+      - name: Run downloaded desktop Dart consumer
+        if: matrix.kind == 'linux' || matrix.kind == 'macos' || matrix.kind == 'windows'
+        run: |
+          python3 -m http.server 8125 --directory build/release-download >build/release-desktop-http.log 2>&1 &
           server_pid=$!
           trap 'kill "$server_pid"' EXIT
           for attempt in $(seq 1 20); do
-            if curl --fail --silent http://127.0.0.1:8125/ >/dev/null; then
-              break
-            fi
+            if curl --fail --silent http://127.0.0.1:8125/ >/dev/null; then break; fi
             sleep 1
           done
-
-          cd tool/release_http_consumer
+          cd tools/fixtures/release_http_consumer
           dart pub get
           dart run bin/main.dart
 
-      - name: Prepare iOS release consumer
-        if: matrix.kind == 'ios'
-        shell: bash
-        run: |
-          set -euo pipefail
-          cp -R example/flutter_app build/release-ios-example
-          python3 -c "from pathlib import Path; p=Path('build/release-ios-example/pubspec.yaml'); s=p.read_text(); old='      build_from_source: true'; new='      release_base_url: http://127.0.0.1:8125/\\n      allow_insecure_release_base: true'; assert old in s, 'example hook configuration changed'; p.write_text(s.replace(old, new))"
-          python3 -m http.server 8125 --directory build/release-download \
-            >build/release-download/http.log 2>&1 &
-          server_pid=$!
-          trap 'kill "$server_pid"' EXIT
-          for attempt in $(seq 1 20); do
-            if curl --fail --silent http://127.0.0.1:8125/ >/dev/null; then
-              break
-            fi
-            sleep 1
-          done
-          export CEL_BRIDGE_IOS_XCFRAMEWORK_URL="http://127.0.0.1:8125/cel-bridge-ios-xcframework-v$(cat VERSION).zip"
-          export CEL_BRIDGE_IOS_XCFRAMEWORK_CHECKSUM_URL="http://127.0.0.1:8125/checksums.txt"
-          cd build/release-ios-example
-          flutter pub get
-          flutter build ios --simulator --no-codesign --no-pub
-
-      - name: Run downloaded iOS runtime integration test
-        if: matrix.kind == 'ios'
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 -m http.server 8125 --directory build/release-download \
-            >build/release-download/http.log 2>&1 &
-          server_pid=$!
-          trap 'kill "$server_pid"' EXIT
-          for attempt in $(seq 1 20); do
-            if curl --fail --silent http://127.0.0.1:8125/ >/dev/null; then
-              break
-            fi
-            sleep 1
-          done
-          export CEL_BRIDGE_IOS_XCFRAMEWORK_URL="http://127.0.0.1:8125/cel-bridge-ios-xcframework-v$(cat VERSION).zip"
-          export CEL_BRIDGE_IOS_XCFRAMEWORK_CHECKSUM_URL="http://127.0.0.1:8125/checksums.txt"
-          cd build/release-ios-example
-          flutter pub get
-          device_id="$(xcrun simctl list devices available | awk -F '[()]' '/iPhone/ && /(Shutdown|Booted)/ {print $2; exit}')"
-          test -n "$device_id"
-          xcrun simctl boot "$device_id" 2>/dev/null || true
-          xcrun simctl bootstatus "$device_id" -b
-          flutter test --no-pub integration_test/runtime_test.dart -d "$device_id"
-
-      - name: Prepare Android release consumer
+      - name: Prepare downloaded Android example
         if: matrix.kind == 'android'
-        shell: bash
         run: |
-          set -euo pipefail
-          cp -R example/flutter_app build/release-android-example
-          python3 -c "from pathlib import Path; p=Path('build/release-android-example/pubspec.yaml'); s=p.read_text(); old='      build_from_source: true'; new='      release_base_url: http://127.0.0.1:8125/\\n      allow_insecure_release_base: true'; assert old in s, 'example hook configuration changed'; p.write_text(s.replace(old, new))"
-          python3 -m http.server 8125 --directory build/release-download \
-            >build/release-download/http.log 2>&1 &
+          cp -R examples/flutter-app build/release-android-example
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('build/release-android-example/pubspec.yaml')
+          text = path.read_text()
+          old = '      build_from_source: true'
+          new = '      build_from_source: false\n      release_base_url: http://127.0.0.1:8125/\n      allow_insecure_release_base: true'
+          if old not in text:
+              raise SystemExit('example hook configuration changed')
+          path.write_text(text.replace(old, new))
+          PY
+          python3 -m http.server 8125 --directory build/release-download >build/release-android-http.log 2>&1 &
           server_pid=$!
-          trap 'kill "$server_pid"' EXIT
+          echo "RELEASE_HTTP_PID=$server_pid" >> "$GITHUB_ENV"
           for attempt in $(seq 1 20); do
-            if curl --fail --silent http://127.0.0.1:8125/ >/dev/null; then
-              break
-            fi
+            if curl --fail --silent http://127.0.0.1:8125/ >/dev/null; then break; fi
             sleep 1
           done
           cd build/release-android-example
           flutter pub get
           flutter build apk --debug --no-pub
 
-      - name: Enable KVM group perms
-        if: matrix.kind == 'android'
-        shell: bash
-        run: |
-          set -euo pipefail
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
-            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
-          sudo udevadm control --reload-rules
-          sudo udevadm trigger --name-match=kvm
-
-      - name: Run downloaded Android runtime integration test
+      - name: Run downloaded Android example
         if: matrix.kind == 'android'
         uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
         with:
@@ -618,8 +544,40 @@ jobs:
           force-avd-creation: true
           emulator-options: -no-window -no-audio -no-boot-anim
           disable-animations: true
-          script: >-
-            set -eu; python3 -m http.server 8125 --directory build/release-download >build/release-download/http.log 2>&1 & server_pid=$!; trap 'kill "$server_pid"' 0; for attempt in $(seq 1 20); do if curl --fail --silent http://127.0.0.1:8125/ >/dev/null; then break; fi; sleep 1; done; cd build/release-android-example; flutter test --no-pub integration_test/runtime_test.dart -d emulator-5554
+          script: |
+            set -euo pipefail
+            cd "$GITHUB_WORKSPACE/build/release-android-example"
+            flutter test --no-pub integration_test/runtime_test.dart -d emulator-5554
+
+      - name: Prepare downloaded iOS example
+        if: matrix.kind == 'ios'
+        run: |
+          cp -R examples/flutter-app build/release-ios-example
+          python3 -m http.server 8125 --directory build/release-download >build/release-ios-http.log 2>&1 &
+          server_pid=$!
+          echo "RELEASE_HTTP_PID=$server_pid" >> "$GITHUB_ENV"
+          for attempt in $(seq 1 20); do
+            if curl --fail --silent http://127.0.0.1:8125/ >/dev/null; then break; fi
+            sleep 1
+          done
+          export CEL_BRIDGE_IOS_XCFRAMEWORK_URL="http://127.0.0.1:8125/cel-bridge-ios-xcframework-v$(cat VERSION).zip"
+          export CEL_BRIDGE_IOS_XCFRAMEWORK_CHECKSUM_URL="http://127.0.0.1:8125/checksums.txt"
+          cd build/release-ios-example
+          flutter pub get
+          flutter build ios --simulator --no-codesign --no-pub
+
+      - name: Run downloaded iOS example
+        if: matrix.kind == 'ios'
+        env:
+          CEL_BRIDGE_IOS_XCFRAMEWORK_URL: http://127.0.0.1:8125/cel-bridge-ios-xcframework-v${{ needs.version.outputs.version }}.zip
+          CEL_BRIDGE_IOS_XCFRAMEWORK_CHECKSUM_URL: http://127.0.0.1:8125/checksums.txt
+        run: |
+          cd build/release-ios-example
+          device_id="$(xcrun simctl list devices available | awk -F '[()]' '/iPhone/ && /(Shutdown|Booted)/ {print $2; exit}')"
+          test -n "$device_id"
+          xcrun simctl boot "$device_id" 2>/dev/null || true
+          xcrun simctl bootstatus "$device_id" -b
+          flutter test --no-pub integration_test/runtime_test.dart -d "$device_id"
 
   publish-check:
     needs: [version, release-consumption, release-platform-consumption]
@@ -637,41 +595,41 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Get Dart dependencies
-        run: dart pub get
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
 
-      - name: Validate pub package
-        run: dart pub publish --dry-run
+      - name: Check package dry-runs
+        run: |
+          cd sdk/dart
+          dart pub get
+          dart pub publish --dry-run
+          cd ../../
+          CEL_BRIDGE_BUILD_FROM_SOURCE=1 \
+            CEL_BRIDGE_RUNTIME_SOURCE="$GITHUB_WORKSPACE" \
+            cargo package --manifest-path sdk/rust/Cargo.toml --allow-dirty
+          CEL_BRIDGE_BUILD_FROM_SOURCE=1 \
+            CEL_BRIDGE_RUNTIME_SOURCE="$GITHUB_WORKSPACE" \
+            cargo publish --manifest-path sdk/rust/Cargo.toml \
+              --dry-run --allow-dirty
 
   publish:
-    needs: [version, release-consumption, release-platform-consumption, publish-check]
+    needs: [version, publish-check]
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-      - name: Verify Release before publish
+      - name: Verify Draft Release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_COMMIT: ${{ needs.version.outputs.commit }}
           RELEASE_TAG: ${{ needs.version.outputs.tag }}
+          RELEASE_COMMIT: ${{ needs.version.outputs.commit }}
         run: |
           set -euo pipefail
-          tag_commit="$(gh api \
-            "repos/$GITHUB_REPOSITORY/commits/$RELEASE_TAG" \
-            --jq .sha)"
-          test "$tag_commit" = "$RELEASE_COMMIT"
-          main_comparison="$(gh api \
-            "repos/$GITHUB_REPOSITORY/compare/$RELEASE_COMMIT...main" \
-            --jq .status)"
-          [[ "$main_comparison" == "ahead" || "$main_comparison" == "identical" ]]
-          test "$(gh release view \
-            "$RELEASE_TAG" \
-            --repo "$GITHUB_REPOSITORY" \
-            --json isDraft \
-            --jq .isDraft)" = true
+          test "$(gh api "repos/$GITHUB_REPOSITORY/commits/$RELEASE_TAG" --jq .sha)" = "$RELEASE_COMMIT"
+          test "$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)" = true
 
-      - name: Publish verified Release
+      - name: Publish verified GitHub Release
         uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228
         with:
           tag_name: ${{ needs.version.outputs.tag }}
