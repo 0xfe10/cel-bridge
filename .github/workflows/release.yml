@@ -16,7 +16,7 @@ permissions:
   actions: read
 
 concurrency:
-  group: release-${{ github.ref }}
+  group: release-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
   cancel-in-progress: false
 
 jobs:
@@ -30,7 +30,7 @@ jobs:
       - name: Check out source
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+          ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/tags/{0}', inputs.tag) || github.sha }}
           persist-credentials: false
 
       - name: Set up Flutter
@@ -46,15 +46,21 @@ jobs:
         id: version
         shell: bash
         env:
+          GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
         run: |
           set -euo pipefail
           [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]
           test -z "$(git status --short)"
+          release_commit="$(git rev-parse HEAD)"
+          tag_commit="$(gh api \
+            "repos/$GITHUB_REPOSITORY/commits/$RELEASE_TAG" \
+            --jq .sha)"
+          test "$tag_commit" = "$release_commit"
           dart run tool/verify_versions.dart --tag "$RELEASE_TAG"
           echo "version=$(cat VERSION)" >> "$GITHUB_OUTPUT"
           echo "tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
-          echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "commit=$release_commit" >> "$GITHUB_OUTPUT"
 
       - name: Require successful CI for release commit
         shell: bash
@@ -128,7 +134,7 @@ jobs:
       - name: Check out source
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+          ref: ${{ needs.version.outputs.commit }}
           persist-credentials: false
 
       - name: Set up Go
@@ -232,7 +238,7 @@ jobs:
       - name: Check out source
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+          ref: ${{ needs.version.outputs.commit }}
           persist-credentials: false
 
       - name: Set up Go
@@ -288,6 +294,39 @@ jobs:
           done
           sort -k2 build/release/checksums.txt -o build/release/checksums.txt
 
+      - name: Validate release target before mutation
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.version.outputs.tag }}
+          RELEASE_COMMIT: ${{ needs.version.outputs.commit }}
+        run: |
+          set -euo pipefail
+          tag_commit="$(gh api \
+            "repos/$GITHUB_REPOSITORY/commits/$RELEASE_TAG" \
+            --jq .sha)"
+          test "$tag_commit" = "$RELEASE_COMMIT"
+          release_response="$(gh api --include \
+            "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG" \
+            2>/dev/null || true)"
+          release_status="$(sed -n \
+            's/^HTTP\/[^ ]* \([0-9][0-9][0-9]\).*/\1/p' <<<"$release_response" \
+            | head -n 1)"
+          case "$release_status" in
+            200)
+              release_draft="$(awk \
+                'BEGIN { body = 0 } body { print } /^$/ { body = 1 }' \
+                <<<"$release_response" | jq -r .draft)"
+              test "$release_draft" = true
+              ;;
+            404)
+              ;;
+            *)
+              echo "unexpected release lookup status: $release_status" >&2
+              exit 1
+              ;;
+          esac
+
       - name: Create Draft Release
         uses: softprops/action-gh-release@72f2c25fcb47643c292f7107632f7a47c1df5cd8
         with:
@@ -320,7 +359,7 @@ jobs:
           if-no-files-found: error
 
   release-consumption:
-    needs: draft
+    needs: [version, draft]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -328,7 +367,7 @@ jobs:
       - name: Check out source
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+          ref: ${{ needs.version.outputs.commit }}
           persist-credentials: false
 
       - name: Set up Flutter
@@ -438,7 +477,7 @@ jobs:
           dart run bin/main.dart
 
   release-platform-consumption:
-    needs: draft
+    needs: [version, draft]
     strategy:
       fail-fast: false
       matrix:
@@ -465,7 +504,7 @@ jobs:
       - name: Check out source
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+          ref: ${{ needs.version.outputs.commit }}
           persist-credentials: false
 
       - name: Set up Flutter
@@ -569,13 +608,13 @@ jobs:
             flutter test integration_test/runtime_test.dart -d emulator-5554
 
   publish-check:
-    needs: [release-consumption, release-platform-consumption]
+    needs: [version, release-consumption, release-platform-consumption]
     runs-on: ubuntu-latest
     steps:
       - name: Check out source
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+          ref: ${{ needs.version.outputs.commit }}
           persist-credentials: false
 
       - name: Set up Flutter
