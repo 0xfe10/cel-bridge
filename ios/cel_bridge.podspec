@@ -32,6 +32,24 @@ Pod::Spec.new do |s|
     :execution_position => :before_compile,
     :script => <<-SCRIPT
 set -euo pipefail
+download() {
+  local url="$1"
+  shift
+  case "$url" in
+    https://*)
+      /usr/bin/curl --fail --location --retry 3 \
+        --proto '=https' --proto-redir '=https' "$url" "$@"
+      ;;
+    http://127.0.0.1/*|http://127.0.0.1:*|http://localhost/*|http://localhost:*)
+      /usr/bin/curl --fail --location --retry 3 \
+        --proto '=http' --proto-redir '=http' "$url" "$@"
+      ;;
+    *)
+      echo "cel_bridge: URL must use HTTPS (or localhost HTTP for tests): $url" >&2
+      return 1
+      ;;
+  esac
+}
 build_root="${PODS_CONFIGURATION_BUILD_DIR:-${TARGET_BUILD_DIR:-}}"
 test -n "$build_root"
 root="$build_root/cel_bridge"
@@ -45,11 +63,11 @@ else
   archive="$root/#{archive_name}"
   if [ ! -d "$framework" ]; then
     url="${CEL_BRIDGE_IOS_XCFRAMEWORK_URL:-#{release_base}/#{archive_name}}"
-    /usr/bin/curl --fail --location --retry 3 "$url" -o "$archive"
+    download "$url" -o "$archive"
     checksum_url="${CEL_BRIDGE_IOS_XCFRAMEWORK_CHECKSUM_URL:-#{release_base}/checksums.txt}"
     expected="${CEL_BRIDGE_IOS_XCFRAMEWORK_SHA256:-}"
     if [ -z "$expected" ]; then
-      expected="$(/usr/bin/curl --fail --location --retry 3 "$checksum_url" | /usr/bin/awk -v name="#{archive_name}" '$2 == name { print $1 }')"
+      expected="$(download "$checksum_url" | /usr/bin/awk -v name="#{archive_name}" '$2 == name { print $1 }')"
     fi
     test -n "$expected"
     printf '%s  %s\\n' "$expected" "$archive" | /usr/bin/shasum -a 256 -c -

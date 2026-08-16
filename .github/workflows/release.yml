@@ -66,6 +66,10 @@ jobs:
             --json status,conclusion \
             --jq '[.[] | select(.status == "completed" and .conclusion == "success")] | length')"
           test "$successful_platform_runs" -ge 1
+          main_comparison="$(gh api \
+            "repos/$GITHUB_REPOSITORY/compare/$RELEASE_COMMIT...main" \
+            --jq .status)"
+          [[ "$main_comparison" == "ahead" || "$main_comparison" == "identical" ]]
 
   build:
     needs: version
@@ -278,6 +282,7 @@ jobs:
           name: cel-bridge ${{ needs.version.outputs.version }}
           draft: true
           generate_release_notes: true
+          prerelease: ${{ contains(github.ref_name, '-') }}
           fail_on_unmatched_files: true
           files: build/release/*
         env:
@@ -572,7 +577,12 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          set -euo pipefail
+          prerelease=false
+          if [[ "$GITHUB_REF_NAME" == *-* ]]; then
+            prerelease=true
+          fi
           gh release edit "$GITHUB_REF_NAME" \
             --repo "$GITHUB_REPOSITORY" \
             --draft=false \
-            --prerelease=false
+            --prerelease="$prerelease"
