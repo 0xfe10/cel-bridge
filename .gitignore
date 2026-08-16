@@ -2,6 +2,8 @@
 .packages
 .pub/
 build/
+!sdk/rust/build/
+!sdk/rust/build/*.rs
 target/
 coverage/
 pubspec.lock

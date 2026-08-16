@@ -2,7 +2,7 @@ package celbridge
 
 import "github.com/0xfe10/cel-bridge/runtime/internal/protocol"
 
-const version = "0.1.0"
+const version = "0.2.0"
 const celGoVersion = "v0.31.0"
 
 func Version() string {

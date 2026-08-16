@@ -21,6 +21,19 @@ Future<void> main(List<String> args) async {
     if (match == null || match.group(1) != version) {
       throw StateError('VERSION and pubspec.yaml version do not match');
     }
+    final rustPackageVersion = _constant(
+      File('${root.path}/sdk/rust/Cargo.toml'),
+      RegExp(r'^version\s*=\s*"([^"]+)"', multiLine: true),
+      'Rust package version',
+    );
+    final rustLockVersion = _constant(
+      File('${root.path}/sdk/rust/Cargo.lock'),
+      RegExp(
+        r'name\s*=\s*"cel-bridge"\s+version\s*=\s*"([^"]+)"',
+        multiLine: true,
+      ),
+      'Rust lockfile version',
+    );
     final goRuntimeVersion = _constant(
       File('${root.path}/runtime/celbridge/version.go'),
       RegExp(r'const version = "([^"]+)"'),
@@ -40,6 +53,8 @@ Future<void> main(List<String> args) async {
       goRuntimeVersion,
       dartRuntimeVersion,
       hookRuntimeVersion,
+      rustPackageVersion,
+      rustLockVersion,
     ].any((value) => value != version)) {
       throw StateError('runtime version constants do not match VERSION');
     }

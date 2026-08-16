@@ -24,7 +24,7 @@ final class ArtifactTarget {
   String get archiveExtension => goos == 'windows' ? 'zip' : 'tar.gz';
 
   static ArtifactTarget parse(String name) {
-    for (final target in artifactTargets) {
+    for (final target in [...artifactTargets, ...rustArtifactTargets]) {
       if (target.name == name) return target;
     }
     throw ArgumentError('unsupported artifact target $name');
@@ -36,6 +36,13 @@ const artifactTargets = <ArtifactTarget>[
     name: 'linux-x86_64',
     goos: 'linux',
     goarch: 'amd64',
+    libraryName: 'libcel_bridge.so',
+    staticLinking: false,
+  ),
+  ArtifactTarget(
+    name: 'linux-aarch64',
+    goos: 'linux',
+    goarch: 'arm64',
     libraryName: 'libcel_bridge.so',
     staticLinking: false,
   ),
@@ -97,6 +104,86 @@ const artifactTargets = <ArtifactTarget>[
   ),
   ArtifactTarget(
     name: 'ios-x86_64-simulator',
+    goos: 'ios',
+    goarch: 'amd64',
+    libraryName: 'libcel_bridge.a',
+    staticLinking: true,
+  ),
+];
+
+const rustArtifactTargets = <ArtifactTarget>[
+  ArtifactTarget(
+    name: 'rust-linux-x86_64',
+    goos: 'linux',
+    goarch: 'amd64',
+    libraryName: 'libcel_bridge.a',
+    staticLinking: true,
+  ),
+  ArtifactTarget(
+    name: 'rust-linux-aarch64',
+    goos: 'linux',
+    goarch: 'arm64',
+    libraryName: 'libcel_bridge.a',
+    staticLinking: true,
+  ),
+  ArtifactTarget(
+    name: 'rust-macos-x86_64',
+    goos: 'darwin',
+    goarch: 'amd64',
+    libraryName: 'libcel_bridge.a',
+    staticLinking: true,
+  ),
+  ArtifactTarget(
+    name: 'rust-macos-arm64',
+    goos: 'darwin',
+    goarch: 'arm64',
+    libraryName: 'libcel_bridge.a',
+    staticLinking: true,
+  ),
+  ArtifactTarget(
+    name: 'rust-windows-x86_64',
+    goos: 'windows',
+    goarch: 'amd64',
+    libraryName: 'cel_bridge.dll',
+    staticLinking: false,
+  ),
+  ArtifactTarget(
+    name: 'rust-android-arm64-v8a',
+    goos: 'android',
+    goarch: 'arm64',
+    libraryName: 'libcel_bridge.so',
+    staticLinking: false,
+  ),
+  ArtifactTarget(
+    name: 'rust-android-armeabi-v7a',
+    goos: 'android',
+    goarch: 'arm',
+    libraryName: 'libcel_bridge.so',
+    staticLinking: false,
+  ),
+  ArtifactTarget(
+    name: 'rust-android-x86_64',
+    goos: 'android',
+    goarch: 'amd64',
+    libraryName: 'libcel_bridge.so',
+    staticLinking: false,
+  ),
+  ArtifactTarget(
+    name: 'rust-ios-arm64',
+    goos: 'ios',
+    goarch: 'arm64',
+    libraryName: 'libcel_bridge.a',
+    staticLinking: true,
+  ),
+  ArtifactTarget(
+    name: 'rust-ios-arm64-simulator',
+    goos: 'ios',
+    goarch: 'arm64',
+    libraryName: 'libcel_bridge.a',
+    staticLinking: true,
+  ),
+  ArtifactTarget(
+    name: 'rust-ios-x86_64-simulator',
     goos: 'ios',
     goarch: 'amd64',
     libraryName: 'libcel_bridge.a',
@@ -364,18 +451,23 @@ Future<Map<String, Object?>> manifest({
       r'^cel-bridge-(.+)-v(.+)\.(tar\.gz|zip)$',
     ).firstMatch(name);
     if (match == null || match.group(2) != version) continue;
+    final target = match.group(1)!;
+    final rust = target.startsWith('rust-');
+    final platform = rust ? target.substring(5) : target;
+    final os = platform.split('-').first;
     entries.add({
-      'target': match.group(1)!,
-      'architecture': match
-          .group(1)!
-          .substring(match.group(1)!.indexOf('-') + 1),
+      'target': target,
+      'consumer': rust ? 'rust' : 'dart',
+      'os': os == 'wasm' ? 'web' : os,
+      'architecture': _artifactArchitecture(platform),
+      'linkage': _artifactLinkage(platform, rust),
       'file': name,
       'sha256': await sha256File(file),
       'size': await file.length(),
     });
   }
   return {
-    'manifestVersion': 1,
+    'manifestVersion': 2,
     'runtimeVersion': version,
     'protocolVersion': protocolVersion,
     'goVersion': await goVersion(),
@@ -395,6 +487,26 @@ Future<String> goVersion() async {
 }
 
 String manifestFileName(String version) => 'cel-bridge-manifest-v$version.json';
+
+String _artifactArchitecture(String target) {
+  if (target == 'wasm') return 'wasm';
+  if (target == 'ios-xcframework' || target == 'macos-universal') {
+    return 'universal';
+  }
+  final separator = target.indexOf('-');
+  return separator == -1 ? target : target.substring(separator + 1);
+}
+
+String _artifactLinkage(String target, bool rust) {
+  if (target == 'wasm') return 'wasm';
+  if (target == 'ios-xcframework') return 'static';
+  if (rust &&
+      (target.startsWith('linux-') || target.startsWith('macos-'))) {
+    return 'static';
+  }
+  if (rust && target.startsWith('ios-')) return 'static';
+  return 'dynamic';
+}
 
 String _archiveName(ArtifactTarget target, String version) =>
     'cel-bridge-${target.name}-v$version.${target.archiveExtension}';

@@ -11,18 +11,19 @@ void main() {
       artifactTargets.map((target) => target.name),
       containsAll(<String>[
         'linux-x86_64',
+        'linux-aarch64',
         'android-arm64-v8a',
         'ios-arm64',
         'windows-x86_64',
       ]),
     );
+    expect(
+      rustArtifactTargets.map((target) => target.name),
+      contains('rust-linux-x86_64'),
+    );
   });
 
-  test('does not advertise deferred desktop ARM targets', () {
-    expect(
-      () => ArtifactTarget.parse('linux-aarch64'),
-      throwsA(isA<ArgumentError>()),
-    );
+  test('does not advertise deferred Windows ARM targets', () {
     expect(
       () => ArtifactTarget.parse('windows-arm64'),
       throwsA(isA<ArgumentError>()),

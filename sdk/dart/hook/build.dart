@@ -7,7 +7,7 @@ import 'package:code_assets/code_assets.dart';
 import 'package:crypto/crypto.dart';
 import 'package:hooks/hooks.dart';
 
-const _runtimeVersion = '0.1.0';
+const _runtimeVersion = '0.2.0';
 const _protocolVersion = 1;
 const _defaultReleaseBase =
     'https://github.com/0xfe10/cel-bridge/releases/download/v$_runtimeVersion';
@@ -85,10 +85,8 @@ _Target _target(
   bool iosSimulator = false,
   required bool staticLinking,
 }) {
-  if ((os == OS.linux || os == OS.windows) && architecture.name == 'arm64') {
-    throw UnsupportedError(
-      'arm64 ${os.name} artifacts are not included in v1 release assets',
-    );
+  if (os == OS.windows && architecture.name == 'arm64') {
+    throw UnsupportedError('arm64 Windows artifacts are not included in v0.2');
   }
   final arch = switch (architecture.name) {
     'arm' => 'arm',
@@ -202,7 +200,7 @@ Future<void> _downloadArtifact(
     }
   }
   final manifest = await _getJson(manifestUri, allowInsecure);
-  if (manifest['manifestVersion'] != 1 ||
+  if (manifest['manifestVersion'] != 2 ||
       manifest['runtimeVersion'] != _runtimeVersion ||
       manifest['protocolVersion'] != _protocolVersion) {
     throw StateError(
@@ -215,7 +213,9 @@ Future<void> _downloadArtifact(
   }
   Map<String, Object?>? artifact;
   for (final item in artifacts) {
-    if (item is Map && item['target'] == target.name) {
+    if (item is Map &&
+        item['target'] == target.name &&
+        (item['consumer'] == null || item['consumer'] == 'dart')) {
       artifact = item.map((key, value) => MapEntry(key.toString(), value));
       break;
     }
