@@ -252,7 +252,8 @@ Future<ArtifactBuild> buildNativeArtifact({
   required Directory output,
   bool archive = true,
 }) async {
-  final rawDirectory = Directory(_join(output.path, target.name))
+  final outputDirectory = output.absolute;
+  final rawDirectory = Directory(_join(outputDirectory.path, target.name))
     ..createSync(recursive: true);
   final rawFile = File(_join(rawDirectory.path, target.libraryName));
   final environment = <String, String>{
@@ -295,7 +296,12 @@ Future<ArtifactBuild> buildNativeArtifact({
     '${rawFile.path}.sha256',
   ).writeAsString('${await sha256File(rawFile)}\n', flush: true);
   final archiveFile = archive
-      ? File(_join(output.path, _archiveName(target, packageVersion(root))))
+      ? File(
+          _join(
+            outputDirectory.path,
+            _archiveName(target, packageVersion(root)),
+          ),
+        )
       : null;
   if (archiveFile != null) {
     final files = <String, List<int>>{
@@ -409,7 +415,8 @@ Future<WasmBuild> buildWasmArtifact({
   required Directory output,
   bool archive = true,
 }) async {
-  final rawDirectory = Directory(_join(output.path, 'wasm'))
+  final outputDirectory = output.absolute;
+  final rawDirectory = Directory(_join(outputDirectory.path, 'wasm'))
     ..createSync(recursive: true);
   final wasm = File(_join(rawDirectory.path, 'cel_bridge.wasm'));
   final result = await Process.run(
@@ -451,7 +458,10 @@ Future<WasmBuild> buildWasmArtifact({
   await wasmExec.copy(copiedExec.path);
   final archiveFile = archive
       ? File(
-          _join(output.path, 'cel-bridge-wasm-v${packageVersion(root)}.tar.gz'),
+          _join(
+            outputDirectory.path,
+            'cel-bridge-wasm-v${packageVersion(root)}.tar.gz',
+          ),
         )
       : null;
   if (archiveFile != null) {
