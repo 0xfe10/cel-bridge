@@ -271,6 +271,7 @@ Future<WasmBuild> buildWasmArtifact({
       'build',
       '-a',
       '-trimpath',
+      '-buildvcs=false',
       '-ldflags=-buildid=cel-bridge-v${packageVersion(root)}',
       '-o',
       wasm.path,
