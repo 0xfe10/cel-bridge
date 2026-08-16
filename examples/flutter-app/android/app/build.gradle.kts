@@ -63,6 +63,7 @@ tasks.configureEach {
         dependsOn("processDebugMainManifest")
         dependsOn("javaPreCompileDebug")
         dependsOn("desugarDebugFileDependencies")
+        dependsOn("checkDebugDuplicateClasses")
         dependsOn(":integration_test:writeDebugAarMetadata")
     }
 }
