@@ -52,6 +52,7 @@ tasks.configureEach {
         dependsOn("mergeDebugShaders")
         dependsOn("mapDebugSourceSetPaths")
         dependsOn("generateDebugResources")
+        dependsOn("mergeDebugResources")
         dependsOn(":integration_test:writeDebugAarMetadata")
     }
 }
