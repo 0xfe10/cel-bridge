@@ -1,7 +1,7 @@
 # cel-bridge Dart / Flutter Integration Guide
 
 This guide is for developers integrating `cel_bridge` into Dart, Flutter,
-desktop, Android, iOS, or Web applications. It targets the current `v0.1.0`
+desktop, Android, iOS, or Web applications. It targets the current `v0.2.0`
 API.
 
 `cel_bridge` wraps the Go CEL runtime in a Dart API:
@@ -24,9 +24,8 @@ API.
 | iOS Simulator | arm64, x86_64 | Static `libcel_bridge.a`, provided by the XCFramework | No |
 | Web | Browser Wasm | `cel_bridge.wasm`, `wasm_exec.js` | No |
 
-Linux/Windows ARM64 has no `v0.1.0` Release assets yet. Integration is
-explicitly rejected for these targets; a dynamic library for another
-architecture cannot be substituted.
+Windows ARM64 is not included in `v0.2.0`. Linux AArch64 is supported by the
+release artifact and must use the matching `linux-aarch64` library.
 
 ### Versions and toolchains
 
@@ -47,7 +46,8 @@ dependencies:
   cel_bridge:
     git:
       url: https://github.com/0xfe10/cel-bridge.git
-      ref: v0.1.0
+      ref: v0.2.0
+      path: sdk/dart
 ```
 
 Run the following in the application directory:
@@ -63,7 +63,7 @@ For local development, use a path dependency:
 ```yaml
 dependencies:
   cel_bridge:
-    path: ../cel-bridge
+    path: ../cel-bridge/sdk/dart
 ```
 
 Always pin a tag or commit. The runtime protocol version, Dart package version,
@@ -453,10 +453,11 @@ requires the Xcode SDK. CI and the repository's
 [`examples/flutter-app/pubspec.yaml`](../examples/flutter-app/pubspec.yaml) both use
 this mode so the code can be verified directly from the checkout.
 
-To prepare the native cache for the current host first, run this from the
-`cel-bridge` checkout root:
+To prepare the native cache for the current host, run this from the
+`sdk/dart` package directory:
 
 ```bash
+cd sdk/dart
 dart pub get
 CEL_BRIDGE_BUILD_FROM_SOURCE=1 dart run bin/prepare.dart \
   --target linux-x86_64
@@ -501,16 +502,16 @@ hooks:
   user_defines:
     cel_bridge:
       build_from_source: false
-      release_base_url: "https://artifacts.example.com/cel-bridge/v0.1.0"
+      release_base_url: "https://artifacts.example.com/cel-bridge/v0.2.0"
 ```
 
 The mirror must provide the manifest and every target archive for the current
 version, with the original filenames unchanged. For example:
 
 ```text
-cel-bridge-manifest-v0.1.0.json
-cel-bridge-linux-x86_64-v0.1.0.tar.gz
-cel-bridge-android-arm64-v8a-v0.1.0.tar.gz
+cel-bridge-manifest-v0.2.0.json
+cel-bridge-linux-x86_64-v0.2.0.tar.gz
+cel-bridge-android-arm64-v0.2.0.tar.gz
 ...
 ```
 
@@ -638,14 +639,14 @@ Requirements and behavior:
 - the iOS deployment target is 13.0;
 - Flutter builds run the pod script phase automatically;
 - the script phase downloads and verifies
-  `cel-bridge-ios-xcframework-v0.1.0.zip` from the Release;
+  `cel-bridge-ios-xcframework-v0.2.0.zip` from the Release;
 - runtime CEL calls never download executable code;
 - `CEL_BRIDGE_IOS_XCFRAMEWORK_PATH` can point to a local XCFramework;
 - the following environment variables can point to an internal mirror:
 
 ```bash
-export CEL_BRIDGE_IOS_XCFRAMEWORK_URL="https://artifacts.example.com/cel-bridge/v0.1.0/cel-bridge-ios-xcframework-v0.1.0.zip"
-export CEL_BRIDGE_IOS_XCFRAMEWORK_CHECKSUM_URL="https://artifacts.example.com/cel-bridge/v0.1.0/checksums.txt"
+export CEL_BRIDGE_IOS_XCFRAMEWORK_URL="https://artifacts.example.com/cel-bridge/v0.2.0/cel-bridge-ios-xcframework-v0.2.0.zip"
+export CEL_BRIDGE_IOS_XCFRAMEWORK_CHECKSUM_URL="https://artifacts.example.com/cel-bridge/v0.2.0/checksums.txt"
 
 flutter build ios --simulator --no-codesign
 ```
@@ -701,14 +702,15 @@ both files must come from the same cel-bridge version.
 If the assets are built from source, run this from the cel-bridge checkout root:
 
 ```bash
+cd sdk/dart
 CEL_BRIDGE_BUILD_FROM_SOURCE=1 dart run bin/prepare.dart \
-  --platform web --output examples/flutter-app/web
+  --platform web --output ../../examples/flutter-app/web
 ```
 
 Then point the Flutter Web build at these files:
 
 ```bash
-cd examples/flutter-app
+cd ../../examples/flutter-app
 flutter pub get
 flutter build web --debug \
   --dart-define=CEL_BRIDGE_WASM_URL=/cel_bridge.wasm \
