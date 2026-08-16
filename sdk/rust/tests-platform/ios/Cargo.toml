@@ -1,0 +1,12 @@
+[package]
+name = "cel-bridge-ios-smoke"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[lib]
+crate-type = ["staticlib"]
+
+[dependencies]
+cel-bridge = { path = "../.." }
+serde_json = "1.0"
