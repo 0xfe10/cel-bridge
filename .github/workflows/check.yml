@@ -288,7 +288,7 @@ jobs:
           emulator-options: -no-window -no-audio -no-boot-anim
           disable-animations: true
           script: |
-            set -euo pipefail
+            set -eu
             cd "$GITHUB_WORKSPACE"
             flutter test --project-root examples/flutter-app \
               integration_test/runtime_test.dart -d emulator-5554

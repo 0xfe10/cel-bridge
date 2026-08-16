@@ -652,7 +652,7 @@ jobs:
           emulator-options: -no-window -no-audio -no-boot-anim
           disable-animations: true
           script: |
-            set -euo pipefail
+            set -eu
             cd "$GITHUB_WORKSPACE/build/release-android-example"
             flutter test --no-pub integration_test/runtime_test.dart -d emulator-5554
             cd "$GITHUB_WORKSPACE"
