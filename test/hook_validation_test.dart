@@ -33,4 +33,34 @@ void main() {
       );
     }
   });
+
+  test('does not allow an HTTPS download to redirect to HTTP', () {
+    expect(
+      () => validateArtifactDownloadUri(
+        Uri.parse('http://127.0.0.1:8125/artifact'),
+        allowInsecure: true,
+        requireHttps: true,
+      ),
+      throwsA(isA<StateError>()),
+    );
+  });
+
+  test('allows HTTP only for explicit localhost testing', () {
+    expect(
+      () => validateArtifactDownloadUri(
+        Uri.parse('http://127.0.0.1:8125/artifact'),
+        allowInsecure: true,
+        requireHttps: false,
+      ),
+      returnsNormally,
+    );
+    expect(
+      () => validateArtifactDownloadUri(
+        Uri.parse('http://example.com/artifact'),
+        allowInsecure: true,
+        requireHttps: false,
+      ),
+      throwsA(isA<StateError>()),
+    );
+  });
 }

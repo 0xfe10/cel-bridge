@@ -11,6 +11,13 @@ const _runtimeVersion = '0.1.0';
 const _protocolVersion = 1;
 const _defaultReleaseBase =
     'https://github.com/0xfe10/cel-bridge/releases/download/v$_runtimeVersion';
+const _redirectStatusCodes = <int>{
+  HttpStatus.movedPermanently,
+  HttpStatus.found,
+  HttpStatus.seeOther,
+  HttpStatus.temporaryRedirect,
+  HttpStatus.permanentRedirect,
+};
 
 Future<void> main(List<String> args) async {
   await build(args, (input, output) async {
@@ -412,28 +419,60 @@ Future<Map<String, Object?>> _getJson(Uri uri, bool allowInsecure) async {
   return value.map((key, value) => MapEntry(key.toString(), value));
 }
 
-Future<Uint8List> _download(Uri uri, bool allowInsecure) async {
+void validateArtifactDownloadUri(
+  Uri uri, {
+  required bool allowInsecure,
+  required bool requireHttps,
+}) {
   final localHttp =
       uri.scheme == 'http' &&
       (uri.host == '127.0.0.1' || uri.host == 'localhost');
+  if (requireHttps && uri.scheme != 'https') {
+    throw StateError('artifact URL redirect must remain HTTPS: $uri');
+  }
   if (uri.scheme != 'https' && !(allowInsecure && localHttp)) {
     throw StateError('artifact URL must use HTTPS: $uri');
   }
+}
+
+Future<Uint8List> _download(Uri uri, bool allowInsecure) async {
   final client = HttpClient();
   try {
-    final request = await client.getUrl(uri);
-    final response = await request.close();
-    if (response.statusCode != HttpStatus.ok) {
-      throw StateError(
-        'download failed with HTTP ${response.statusCode}: $uri',
+    var current = uri;
+    final requireHttps = uri.scheme == 'https';
+    for (var redirectCount = 0; ; redirectCount++) {
+      validateArtifactDownloadUri(
+        current,
+        allowInsecure: allowInsecure,
+        requireHttps: requireHttps,
+      );
+      final request = await client.getUrl(current);
+      request.followRedirects = false;
+      final response = await request.close();
+      if (_redirectStatusCodes.contains(response.statusCode)) {
+        if (redirectCount >= 5) {
+          throw StateError('too many redirects while downloading $uri');
+        }
+        final location = response.headers.value(HttpHeaders.locationHeader);
+        await response.drain<void>();
+        if (location == null || location.isEmpty) {
+          throw StateError('redirect has no Location header: $current');
+        }
+        current = current.resolve(location);
+        continue;
+      }
+      if (response.statusCode != HttpStatus.ok) {
+        throw StateError(
+          'download failed with HTTP ${response.statusCode}: $current',
+        );
+      }
+      return Uint8List.fromList(
+        await response.fold<List<int>>([], (all, chunk) {
+          all.addAll(chunk);
+          return all;
+        }),
       );
     }
-    return Uint8List.fromList(
-      await response.fold<List<int>>([], (all, chunk) {
-        all.addAll(chunk);
-        return all;
-      }),
-    );
   } finally {
     client.close(force: true);
   }
