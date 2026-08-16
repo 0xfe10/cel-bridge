@@ -45,6 +45,13 @@ void main() {
     );
   });
 
+  test('rejects non-boolean tagged values', () {
+    expect(
+      () => CelValue.fromJson({'kind': 'bool', 'value': 'true'}),
+      throwsFormatException,
+    );
+  });
+
   test('rejects invalid duration components when serialized', () {
     expect(
       () => const CelDurationValue(seconds: 1, nanoseconds: -1).toJson(),

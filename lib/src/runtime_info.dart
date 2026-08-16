@@ -18,7 +18,10 @@ final class CelRuntimeInfo {
       celGoVersion: _string(value['celGoVersion'], 'celGoVersion'),
       features: {
         for (final entry in features.entries)
-          entry.key.toString(): entry.value == true,
+          entry.key.toString(): _bool(
+            entry.value,
+            'runtime info.features.${entry.key}',
+          ),
       },
     );
   }
@@ -51,4 +54,11 @@ int _int(Object? value, String name) {
     return value;
   }
   throw FormatException('$name must be an integer');
+}
+
+bool _bool(Object? value, String name) {
+  if (value is bool) {
+    return value;
+  }
+  throw FormatException('$name must be a boolean');
 }

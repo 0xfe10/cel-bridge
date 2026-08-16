@@ -10,6 +10,9 @@ final class CelBridgeException implements Exception {
   factory CelBridgeException.fromJson(Object? json) {
     final value = _object(json, 'bridge error');
     final rawIssues = value['issues'];
+    if (rawIssues != null && rawIssues is! List) {
+      throw const FormatException('bridge error.issues must be a list');
+    }
     return CelBridgeException(
       code: _string(value['code'], 'bridge error.code'),
       message: _string(value['message'], 'bridge error.message'),

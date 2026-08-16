@@ -154,4 +154,31 @@ void main() {
       ),
     );
   });
+
+  test('rejects malformed boolean response fields as protocol errors', () {
+    for (final decode in [
+      () => decodeEvaluation(
+        '{"protocolVersion":1,"ok":true,"result":{"kind":"bool",'
+        '"value":"true"}}',
+      ),
+      () => decodeValidation(
+        '{"protocolVersion":1,"ok":true,"result":{"valid":"true",'
+        '"issues":[]}}',
+      ),
+      () => decodeEvaluation(
+        '{"protocolVersion":1,"ok":"true","result":{"kind":"null"}}',
+      ),
+    ]) {
+      expect(
+        decode,
+        throwsA(
+          isA<CelBridgeException>().having(
+            (e) => e.code,
+            'code',
+            'protocol_mismatch',
+          ),
+        ),
+      );
+    }
+  });
 }

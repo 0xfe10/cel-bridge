@@ -231,6 +231,12 @@ jobs:
           path: build/artifacts
           merge-multiple: true
 
+      - name: Verify default Web integrity
+        run: |
+          dart run tool/verify_web_integrity.dart \
+            --wasm build/artifacts/cel_bridge.wasm \
+            --wasm-exec build/artifacts/wasm_exec.js
+
       - name: Generate and verify manifest
         run: |
           set -euo pipefail

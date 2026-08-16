@@ -28,4 +28,20 @@ void main() {
       ),
     );
   });
+
+  test('rejects non-boolean feature flags', () {
+    expect(
+      () => decodeRuntimeInfo(
+        '{"protocolVersion":1,"runtimeVersion":"0.1.0",'
+        '"celGoVersion":"v0.31.0","features":{"costLimit":"true"}}',
+      ),
+      throwsA(
+        isA<CelBridgeException>().having(
+          (e) => e.code,
+          'code',
+          'protocol_mismatch',
+        ),
+      ),
+    );
+  });
 }

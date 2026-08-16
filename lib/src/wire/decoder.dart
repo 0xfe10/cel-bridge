@@ -1,30 +1,33 @@
 import 'dart:convert';
 
 import '../cel_exception.dart';
+import '../cel_runtime_options.dart';
 import '../cel_validation_result.dart';
 import '../cel_value.dart';
 import '../runtime_info.dart';
-import '../cel_runtime_options.dart';
 
 CelValidationResult decodeValidation(String raw) {
   final response = _response(raw);
-  if (response['ok'] != true) {
-    throw CelBridgeException.fromJson(response['error']);
-  }
-  return CelValidationResult.fromJson(response['result']);
+  return _decodeResult(
+    'validation result',
+    () => CelValidationResult.fromJson(response['result']),
+  );
 }
 
 CelValue decodeEvaluation(String raw) {
   final response = _response(raw);
-  if (response['ok'] != true) {
-    throw CelBridgeException.fromJson(response['error']);
-  }
-  return CelValue.fromJson(response['result']);
+  return _decodeResult(
+    'evaluation result',
+    () => CelValue.fromJson(response['result']),
+  );
 }
 
 CelRuntimeInfo decodeRuntimeInfo(String raw) {
   final value = _decode(raw);
-  final info = CelRuntimeInfo.fromJson(value);
+  final info = _decodeResult(
+    'runtime info',
+    () => CelRuntimeInfo.fromJson(value),
+  );
   if (info.protocolVersion != wireProtocolVersion) {
     throw CelBridgeException(
       code: 'protocol_mismatch',
@@ -50,7 +53,41 @@ Map<String, Object?> _response(String raw) {
       message: 'unexpected protocol version ${response['protocolVersion']}',
     );
   }
+  final ok = response['ok'];
+  if (ok is! bool) {
+    throw const CelBridgeException(
+      code: 'protocol_mismatch',
+      message: 'response.ok must be a boolean',
+    );
+  }
+  if (!ok) {
+    throw _bridgeError(response['error']);
+  }
   return response;
+}
+
+T _decodeResult<T>(String name, T Function() decode) {
+  try {
+    return decode();
+  } on CelBridgeException {
+    rethrow;
+  } on FormatException catch (error) {
+    throw CelBridgeException(
+      code: 'protocol_mismatch',
+      message: 'malformed $name: $error',
+    );
+  }
+}
+
+CelBridgeException _bridgeError(Object? json) {
+  try {
+    return CelBridgeException.fromJson(json);
+  } on FormatException catch (error) {
+    return CelBridgeException(
+      code: 'protocol_mismatch',
+      message: 'malformed bridge error: $error',
+    );
+  }
 }
 
 Object? _decode(String raw) {

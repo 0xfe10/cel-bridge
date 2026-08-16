@@ -329,6 +329,12 @@ jobs:
           dart run tool/verify_artifact.dart \
             --manifest build/artifacts/cel-bridge-manifest-v$(cat VERSION).json
 
+      - name: Verify default Web integrity
+        run: |
+          dart run tool/verify_web_integrity.dart \
+            --wasm build/artifacts/wasm/cel_bridge.wasm \
+            --wasm-exec build/artifacts/wasm/wasm_exec.js
+
       - name: Prepare self-hosted web assets
         run: |
           CEL_BRIDGE_BUILD_FROM_SOURCE=1 \

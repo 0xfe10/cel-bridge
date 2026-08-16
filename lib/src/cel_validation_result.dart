@@ -10,7 +10,7 @@ final class CelValidationResult {
       throw const FormatException('validation result.issues must be a list');
     }
     return CelValidationResult(
-      valid: value['valid'] == true,
+      valid: _bool(value['valid'], 'validation result.valid'),
       issues: [for (final issue in rawIssues) CelIssue.fromJson(issue)],
     );
   }
@@ -27,4 +27,9 @@ Map<String, Object?> _object(Object? value, String name) {
     return value.map((key, value) => MapEntry(key.toString(), value));
   }
   throw FormatException('$name must be an object');
+}
+
+bool _bool(Object? value, String name) {
+  if (value is bool) return value;
+  throw FormatException('$name must be a boolean');
 }

@@ -10,7 +10,7 @@ sealed class CelValue {
       case 'null':
         return const CelNullValue();
       case 'bool':
-        return CelBoolValue(value['value'] == true);
+        return CelBoolValue(_bool(value['value'], 'bool.value'));
       case 'int':
         return CelIntValue(BigInt.parse(_string(value['value'], 'int.value')));
       case 'uint':
@@ -224,6 +224,11 @@ Map<String, Object?> _object(Object? value, String name) {
 String _string(Object? value, String name) {
   if (value is String) return value;
   throw FormatException('$name must be a string');
+}
+
+bool _bool(Object? value, String name) {
+  if (value is bool) return value;
+  throw FormatException('$name must be a boolean');
 }
 
 double _parseDouble(String value) => switch (value) {
