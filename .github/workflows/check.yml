@@ -278,6 +278,31 @@ jobs:
 
       - name: Run Android emulator tests
         if: matrix.name == 'android'
+        id: android_emulator
+        continue-on-error: true
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          force-avd-creation: true
+          emulator-options: -no-window -no-audio -no-boot-anim
+          disable-animations: true
+          script: |
+            set -eu
+            cd "$GITHUB_WORKSPACE/examples/flutter-app"
+            flutter test --no-pub integration_test/runtime_test.dart -d emulator-5554
+            cd "$GITHUB_WORKSPACE"
+            adb push sdk/rust/tests-platform/android/target/x86_64-linux-android/debug/cel-bridge-android-smoke /data/local/tmp/cel-bridge-android-smoke
+            library="$(find sdk/rust/tests-platform/android/target -name libcel_bridge.so -type f | head -n 1)"
+            test -n "$library"
+            adb push "$library" /data/local/tmp/libcel_bridge.so
+            adb shell chmod 755 /data/local/tmp/cel-bridge-android-smoke
+            adb shell 'LD_LIBRARY_PATH=/data/local/tmp /data/local/tmp/cel-bridge-android-smoke'
+
+      - name: Retry Android emulator tests
+        if: matrix.name == 'android' && steps.android_emulator.outcome == 'failure'
         uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
         with:
           api-level: 35
