@@ -5,6 +5,11 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to run
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -19,10 +24,13 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+      commit: ${{ steps.version.outputs.commit }}
     steps:
       - name: Check out source
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
           persist-credentials: false
 
       - name: Set up Flutter
@@ -38,19 +46,21 @@ jobs:
         id: version
         shell: bash
         env:
-          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
         run: |
           set -euo pipefail
           [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]
           test -z "$(git status --short)"
           dart run tool/verify_versions.dart --tag "$RELEASE_TAG"
           echo "version=$(cat VERSION)" >> "$GITHUB_OUTPUT"
+          echo "tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+          echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Require successful CI for release commit
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_COMMIT: ${{ github.sha }}
+          RELEASE_COMMIT: ${{ steps.version.outputs.commit }}
         run: |
           set -euo pipefail
           successful_runs="$(gh run list \
@@ -118,6 +128,7 @@ jobs:
       - name: Check out source
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
           persist-credentials: false
 
       - name: Set up Go
@@ -221,6 +232,7 @@ jobs:
       - name: Check out source
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
           persist-credentials: false
 
       - name: Set up Go
@@ -263,7 +275,7 @@ jobs:
           find build/artifacts -maxdepth 1 -type f -exec cp {} build/release/ \;
           version="$(cat VERSION)"
           git archive --format=tar.gz \
-            --prefix="cel-bridge-$version/" "$GITHUB_SHA" \
+            --prefix="cel-bridge-$version/" "${{ needs.version.outputs.commit }}" \
             -o "build/release/cel-bridge-source-v$version.tar.gz"
           : > build/release/checksums.txt
           for file in build/release/*; do
@@ -279,11 +291,11 @@ jobs:
       - name: Create Draft Release
         uses: softprops/action-gh-release@72f2c25fcb47643c292f7107632f7a47c1df5cd8
         with:
-          tag_name: ${{ github.ref_name }}
+          tag_name: ${{ needs.version.outputs.tag }}
           name: cel-bridge ${{ needs.version.outputs.version }}
           draft: true
           generate_release_notes: true
-          prerelease: ${{ contains(github.ref_name, '-') }}
+          prerelease: ${{ contains(needs.version.outputs.tag, '-') }}
           fail_on_unmatched_files: true
           files: build/release/*
         env:
@@ -296,7 +308,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p build/release-download
-          gh release download "$GITHUB_REF_NAME" \
+          gh release download "${{ needs.version.outputs.tag }}" \
             --repo "$GITHUB_REPOSITORY" \
             --dir build/release-download
 
@@ -316,6 +328,7 @@ jobs:
       - name: Check out source
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
           persist-credentials: false
 
       - name: Set up Flutter
@@ -452,6 +465,7 @@ jobs:
       - name: Check out source
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
           persist-credentials: false
 
       - name: Set up Flutter
@@ -561,6 +575,7 @@ jobs:
       - name: Check out source
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
           persist-credentials: false
 
       - name: Set up Flutter
@@ -576,7 +591,7 @@ jobs:
         run: dart pub publish --dry-run
 
   publish:
-    needs: [release-consumption, release-platform-consumption, publish-check]
+    needs: [version, release-consumption, release-platform-consumption, publish-check]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -585,11 +600,12 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_COMMIT: ${{ github.sha }}
+          RELEASE_COMMIT: ${{ needs.version.outputs.commit }}
+          RELEASE_TAG: ${{ needs.version.outputs.tag }}
         run: |
           set -euo pipefail
           tag_commit="$(gh api \
-            "repos/$GITHUB_REPOSITORY/commits/$GITHUB_REF_NAME" \
+            "repos/$GITHUB_REPOSITORY/commits/$RELEASE_TAG" \
             --jq .sha)"
           test "$tag_commit" = "$RELEASE_COMMIT"
           main_comparison="$(gh api \
@@ -597,13 +613,13 @@ jobs:
             --jq .status)"
           [[ "$main_comparison" == "ahead" || "$main_comparison" == "identical" ]]
           test "$(gh api \
-            "repos/$GITHUB_REPOSITORY/releases/tags/$GITHUB_REF_NAME" \
+            "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG" \
             --jq .draft)" = true
           prerelease=false
-          if [[ "$GITHUB_REF_NAME" == *-* ]]; then
+          if [[ "$RELEASE_TAG" == *-* ]]; then
             prerelease=true
           fi
-          gh release edit "$GITHUB_REF_NAME" \
+          gh release edit "$RELEASE_TAG" \
             --repo "$GITHUB_REPOSITORY" \
             --draft=false \
             --prerelease="$prerelease"
