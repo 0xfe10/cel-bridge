@@ -56,6 +56,7 @@ tasks.configureEach {
         dependsOn("packageDebugResources")
         dependsOn("parseDebugLocalResources")
         dependsOn("createDebugCompatibleScreenManifests")
+        dependsOn("extractDeepLinksDebug")
         dependsOn(":integration_test:writeDebugAarMetadata")
     }
 }
