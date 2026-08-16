@@ -5,7 +5,7 @@ through one JSON wire protocol and is available through native C ABI or Go
 Wasm. The Dart API never exposes `cel-go` types.
 
 For the complete Dart/Flutter integration documentation, see the
-[Dart / Flutter Integration Guide](docs/dart-integration.md).
+[Dart / Flutter Integration Guide](docs/dart.md).
 
 Version `0.1.0` supports Linux x86_64, Android, macOS, iOS, Windows x86_64,
 and Web. Linux and Windows ARM64 release assets are deferred from v1 and are
@@ -30,7 +30,7 @@ For local development, use a path dependency instead:
 ```yaml
 dependencies:
   cel_bridge:
-    path: ../cel-bridge
+    path: ../cel-bridge/sdk/dart
 ```
 
 Run `dart pub get` (or `flutter pub get`) in the consuming package. The build
@@ -170,11 +170,11 @@ Wasm files, build them from source and copy both outputs into the app's public
 web directory:
 
 ```bash
-mkdir -p example/flutter_app/web
-CEL_BRIDGE_BUILD_FROM_SOURCE=1 dart run bin/prepare.dart \
-  --platform web --output example/flutter_app/web
+mkdir -p examples/flutter-app/web
+CEL_BRIDGE_BUILD_FROM_SOURCE=1 dart run sdk/dart/bin/prepare.dart \
+  --platform web --output examples/flutter-app/web
 
-cd example/flutter_app
+cd examples/flutter-app
 flutter pub get
 flutter build web --debug \
   --dart-define=CEL_BRIDGE_WASM_URL=/cel_bridge.wasm \
@@ -207,7 +207,7 @@ available and a verified byte fallback otherwise.
 ## Examples
 
 ```bash
-cd example/dart_cli
+cd examples/dart-cli
 dart pub get
 dart run
 ```
@@ -216,12 +216,12 @@ The Flutter workbench provides editable CEL source, environment and variables,
 validation, evaluation, runtime handshake, timing, and structured errors:
 
 ```bash
-cd example/flutter_app
+cd examples/flutter-app
 flutter pub get
 flutter run -d chrome
 ```
 
-See [example/flutter_app/README.md](example/flutter_app/README.md) for
+See [examples/flutter-app/README.md](examples/flutter-app/README.md) for
 platform-specific build commands.
 
 ## Development and verification
@@ -231,18 +231,18 @@ go test ./...
 go test -race ./...
 dart pub get
 dart format --output=none --set-exit-if-changed .
-dart analyze
+dart analyze sdk/dart/lib sdk/dart/test sdk/dart/bin sdk/dart/hook tools/bin
 dart test
-dart run tool/verify_versions.dart
+(cd tools && dart pub get && dart run bin/verify_versions.dart)
 ```
 
 Artifact commands:
 
 ```bash
-dart run tool/build_artifact.dart --target linux-x86_64
-dart run tool/build_artifact.dart --target wasm
-dart run tool/build_manifest.dart
-dart run tool/verify_artifact.dart \
+dart run tools/bin/build_artifact.dart --target linux-x86_64
+dart run tools/bin/build_artifact.dart --target wasm
+dart run tools/bin/build_manifest.dart
+dart run tools/bin/verify_artifact.dart \
   --manifest build/artifacts/cel-bridge-manifest-v0.1.0.json
 ```
 
