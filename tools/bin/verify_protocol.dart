@@ -23,8 +23,9 @@ Future<void> main(List<String> args) async {
 
     final conformance = _list(
       jsonDecode(
-        await File('${root.path}/protocol/testdata/conformance_cases.json')
-            .readAsString(),
+        await File(
+          '${root.path}/protocol/testdata/conformance_cases.json',
+        ).readAsString(),
       ),
       'conformance cases',
     );
@@ -39,8 +40,9 @@ Future<void> main(List<String> args) async {
 
     final errors = _list(
       jsonDecode(
-        await File('${root.path}/protocol/testdata/error_cases.json')
-            .readAsString(),
+        await File(
+          '${root.path}/protocol/testdata/error_cases.json',
+        ).readAsString(),
       ),
       'error cases',
     );
@@ -69,7 +71,8 @@ Future<void> main(List<String> args) async {
 Directory _root(List<String> args) {
   final index = args.indexOf('--root');
   if (index != -1) {
-    if (index + 1 >= args.length) throw ArgumentError('--root requires a value');
+    if (index + 1 >= args.length)
+      throw ArgumentError('--root requires a value');
     return Directory(args[index + 1]).absolute;
   }
   return repositoryRoot();
@@ -78,7 +81,9 @@ Directory _root(List<String> args) {
 Directory repositoryRoot() {
   final candidate = File.fromUri(Platform.script).absolute.parent.parent;
   if (File('${candidate.path}/go.mod').existsSync()) return candidate;
-  throw StateError('pass --root <repository> when running outside the checkout');
+  throw StateError(
+    'pass --root <repository> when running outside the checkout',
+  );
 }
 
 Map<String, Object?> _object(Object? value, String name) {

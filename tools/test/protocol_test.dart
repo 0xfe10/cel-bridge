@@ -19,9 +19,9 @@ void main() {
       'response.schema.json',
       'value.schema.json',
     ]) {
-      final value = jsonDecode(
-        File('../protocol/schema/$name').readAsStringSync(),
-      ) as Map;
+      final value =
+          jsonDecode(File('../protocol/schema/$name').readAsStringSync())
+              as Map;
       expect(value[r'$schema'], isA<String>(), reason: name);
       expect(value[r'$id'], isA<String>(), reason: name);
     }
