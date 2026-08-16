@@ -24,7 +24,7 @@ func TestDecodeRejectsInvalidEnvironment(t *testing.T) {
 	cases := []string{
 		`{"schemaVersion":2,"variables":{}}`,
 		`{"schemaVersion":1,"variables":{"1age":{"type":"int"}}}`,
-		`{"schemaVersion":1,"variables":{"变量":{"type":"int"}}}`,
+		`{"schemaVersion":1,"variables":{"café":{"type":"int"}}}`,
 		`{"schemaVersion":1,"variables":{"if":{"type":"int"}}}`,
 		`{"schemaVersion":1,"variables":{"items":{"type":"list"}}}`,
 		`{"schemaVersion":1,"variables":{"value":{"type":"unknown"}}}`,
