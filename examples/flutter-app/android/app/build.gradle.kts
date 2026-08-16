@@ -42,3 +42,9 @@ android {
 flutter {
     source = "../.."
 }
+
+tasks.named("compileFlutterBuildDebug") {
+    dependsOn("checkDebugAarMetadata")
+    dependsOn("mergeDebugNativeDebugMetadata")
+    dependsOn(":integration_test:writeDebugAarMetadata")
+}
