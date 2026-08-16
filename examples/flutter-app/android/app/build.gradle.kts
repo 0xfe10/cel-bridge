@@ -54,6 +54,7 @@ tasks.configureEach {
         dependsOn("generateDebugResources")
         dependsOn("mergeDebugResources")
         dependsOn("packageDebugResources")
+        dependsOn("parseDebugLocalResources")
         dependsOn(":integration_test:writeDebugAarMetadata")
     }
 }
