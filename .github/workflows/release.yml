@@ -329,7 +329,7 @@ jobs:
           esac
 
       - name: Create Draft Release
-        uses: softprops/action-gh-release@72f2c25fcb47643c292f7107632f7a47c1df5cd8
+        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228
         with:
           tag_name: ${{ needs.version.outputs.tag }}
           name: cel-bridge ${{ needs.version.outputs.version }}
@@ -636,7 +636,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: Publish verified Release
+      - name: Verify Release before publish
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -655,11 +655,11 @@ jobs:
           test "$(gh api \
             "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG" \
             --jq .draft)" = true
-          prerelease=false
-          if [[ "$RELEASE_TAG" == *-* ]]; then
-            prerelease=true
-          fi
-          gh release edit "$RELEASE_TAG" \
-            --repo "$GITHUB_REPOSITORY" \
-            --draft=false \
-            --prerelease="$prerelease"
+
+      - name: Publish verified Release
+        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228
+        with:
+          tag_name: ${{ needs.version.outputs.tag }}
+          prerelease: ${{ contains(needs.version.outputs.tag, '-') }}
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
