@@ -61,6 +61,7 @@ tasks.configureEach {
         dependsOn("processDebugManifest")
         dependsOn("processDebugManifestForPackage")
         dependsOn("processDebugMainManifest")
+        dependsOn("javaPreCompileDebug")
         dependsOn(":integration_test:writeDebugAarMetadata")
     }
 }
