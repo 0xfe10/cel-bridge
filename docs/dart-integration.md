@@ -1,42 +1,46 @@
-# cel-bridge Dart / Flutter 集成指南
+# cel-bridge Dart / Flutter Integration Guide
 
-本文面向需要在 Dart、Flutter、桌面、Android、iOS 或 Web 应用中接入
-`cel_bridge` 的开发者。文档以当前 `v0.1.0` API 为准。
+This guide is for developers integrating `cel_bridge` into Dart, Flutter,
+desktop, Android, iOS, or Web applications. It targets the current `v0.1.0`
+API.
 
-`cel_bridge` 将 Go CEL runtime 封装成 Dart API：
+`cel_bridge` wraps the Go CEL runtime in a Dart API:
 
-- Native 平台通过 C ABI 和动态库运行；
-- iOS 通过 Flutter plugin 和静态 XCFramework 运行；
-- Web 通过 Go Wasm 运行；
-- Dart 代码只处理环境定义、变量、校验结果和类型化的 CEL 值，不需要直接接触 `cel-go` 类型。
+- Native platforms run through the C ABI and dynamic libraries;
+- iOS runs through a Flutter plugin and a static XCFramework;
+- Web runs through Go Wasm;
+- Dart code only handles environment definitions, variables, validation results,
+  and typed CEL values; it never needs to work with `cel-go` types directly.
 
-## 1. 支持范围
+## 1. Supported platforms
 
-| 平台 | 支持架构 | 运行时资产 | 应用代码是否需要平台分支 |
+| Platform | Supported architectures | Runtime assets | Platform branches required in app code |
 | --- | --- | --- | --- |
-| Linux | x86_64 | `libcel_bridge.so` | 否 |
-| Windows | x86_64 | `cel_bridge.dll` | 否 |
-| macOS | x86_64、arm64 | `libcel_bridge.dylib` | 否 |
-| Android | arm64-v8a、armeabi-v7a、x86_64 | `libcel_bridge.so` | 否 |
-| iOS 真机 | arm64 | 静态 `libcel_bridge.a`，由 XCFramework 提供 | 否 |
-| iOS Simulator | arm64、x86_64 | 静态 `libcel_bridge.a`，由 XCFramework 提供 | 否 |
-| Web | 浏览器 Wasm | `cel_bridge.wasm`、`wasm_exec.js` | 否 |
+| Linux | x86_64 | `libcel_bridge.so` | No |
+| Windows | x86_64 | `cel_bridge.dll` | No |
+| macOS | x86_64, arm64 | `libcel_bridge.dylib` | No |
+| Android | arm64-v8a, armeabi-v7a, x86_64 | `libcel_bridge.so` | No |
+| iOS device | arm64 | Static `libcel_bridge.a`, provided by the XCFramework | No |
+| iOS Simulator | arm64, x86_64 | Static `libcel_bridge.a`, provided by the XCFramework | No |
+| Web | Browser Wasm | `cel_bridge.wasm`, `wasm_exec.js` | No |
 
-Linux/Windows ARM64 当前没有 `v0.1.0` Release 资产，接入时会被明确拒绝，
-不能用其他架构的动态库替代。
+Linux/Windows ARM64 has no `v0.1.0` Release assets yet. Integration is
+explicitly rejected for these targets; a dynamic library for another
+architecture cannot be substituted.
 
-### 版本和工具链
+### Versions and toolchains
 
-- Dart SDK：`>=3.10.0`；
-- Flutter：`>=3.10.0`；
-- 使用 Release 资产时，应用不需要安装 Go；
-- 选择源码构建时，需要 Go 1.26.x 和对应平台的 C/C++ 工具链；
-- Android 源码构建还需要 Android NDK；
-- iOS 源码构建需要 Xcode、`xcrun` 和对应 SDK。
+- Dart SDK: `>=3.10.0`;
+- Flutter: `>=3.10.0`;
+- applications do not need Go installed when using Release assets;
+- source builds require Go 1.26.x and the platform's C/C++ toolchain;
+- Android source builds also require the Android NDK;
+- iOS source builds require Xcode, `xcrun`, and the corresponding SDK.
 
-## 2. 安装依赖
+## 2. Install dependencies
 
-当前包尚未发布到 pub.dev，接入方应固定 Git tag，而不要依赖未固定的分支：
+The package is not published to pub.dev yet. Consumers should pin a Git tag
+instead of depending on an unpinned branch:
 
 ```yaml
 dependencies:
@@ -46,15 +50,15 @@ dependencies:
       ref: v0.1.0
 ```
 
-然后在应用目录执行：
+Run the following in the application directory:
 
 ```bash
 dart pub get
-# Flutter 应用使用：
+# For a Flutter application:
 flutter pub get
 ```
 
-本地开发时可以使用 path dependency：
+For local development, use a path dependency:
 
 ```yaml
 dependencies:
@@ -62,15 +66,16 @@ dependencies:
     path: ../cel-bridge
 ```
 
-推荐始终固定 tag 或 commit。运行时协议版本、Dart 包版本和 Release 资产版本
-必须匹配；库在初始化时会主动检查，不匹配会返回 `runtime_mismatch` 或
-`protocol_mismatch`。
+Always pin a tag or commit. The runtime protocol version, Dart package version,
+and Release asset version must match. The library checks this during
+initialization and returns `runtime_mismatch` or `protocol_mismatch` when they
+do not.
 
-## 3. 最小 Dart 用法
+## 3. Minimal Dart usage
 
-完整可运行示例见
-[`example/dart_cli/bin/main.dart`](../example/dart_cli/bin/main.dart)。下面是最小的
-校验和执行流程：
+A complete runnable example is available in
+[`example/dart_cli/bin/main.dart`](../example/dart_cli/bin/main.dart). The
+following is the smallest validation and evaluation flow:
 
 ```dart
 import 'package:cel_bridge/cel_bridge.dart';
@@ -119,34 +124,41 @@ Future<void> main() async {
 }
 ```
 
-### 初始化规则
+### Initialization rules
 
-`CelRuntime.initialize()` 是异步操作，并且在一个 Dart isolate 内只初始化一次：
+`CelRuntime.initialize()` is asynchronous and initializes only once per Dart
+isolate:
 
 ```dart
 final runtimeFuture = CelRuntime.initialize();
 final runtime = await runtimeFuture;
 ```
 
-建议在应用启动或服务对象中缓存这个 `Future<CelRuntime>`，不要为每次表达式
-执行重新初始化。`CelRuntime` 当前没有需要调用的 `dispose()` 方法。
+Cache this `Future<CelRuntime>` during application startup or in a service
+object. Do not initialize again for every expression. `CelRuntime` currently
+has no `dispose()` method to call.
 
-第一次调用传入的 `CelRuntimeOptions` 决定 Web 资产地址；后续调用会复用同一个
-初始化结果，不会切换到另一组 URL。初始化失败后，库会清除失败的初始化状态，
-后续调用可以重试。
+The `CelRuntimeOptions` passed to the first call determines the Web asset URLs;
+later calls reuse the same initialization result and do not switch to another
+set of URLs. If initialization fails, the library clears the failed state so
+later calls can retry.
 
-### `validate` 和 `evaluate` 的区别
+### `validate` versus `evaluate`
 
-- `validate` 只编译和类型检查 CEL，不读取变量值；普通语法、未声明变量和类型错误
-  会通过 `CelValidationResult.valid == false` 返回；
-- `evaluate` 会编译并执行表达式，必须同时提供环境和变量；执行错误会抛出
-  `CelBridgeException`；
-- 编辑器、表单或规则配置页面应先调用 `validate`，通过后再调用 `evaluate`；
-- 服务端已经配置了源码、输入和输出限制，应用应把用户输入限制在业务需要的范围内。
+- `validate` only compiles and type-checks CEL without reading variable values;
+  ordinary syntax, undeclared-variable, and type errors are returned through
+  `CelValidationResult.valid == false`;
+- `evaluate` compiles and executes the expression and requires both the
+  environment and variables; execution errors throw `CelBridgeException`;
+- editors, forms, and rule-configuration pages should call `validate` before
+  calling `evaluate`;
+- the runtime already enforces source, input, and output limits, but the
+  application should still restrict user input to the required business scope.
 
-## 4. 环境定义：声明变量类型
+## 4. Environment definition: declare variable types
 
-`environment` 是变量的类型 schema，不是变量值。`variables` 才是执行时传入的值。
+`environment` is the type schema for variables, not their values. `variables`
+contains the values passed at evaluation time.
 
 ```dart
 final environment = CelEnvironment(
@@ -175,7 +187,7 @@ final value = await runtime.evaluate(
 );
 ```
 
-也可以直接使用普通的 `Map<String, Object?>`，只要包含：
+You can also use a plain `Map<String, Object?>` as long as it contains:
 
 ```json
 {
@@ -186,35 +198,36 @@ final value = await runtime.evaluate(
 }
 ```
 
-### 支持的 schema 类型
+### Supported schema types
 
-| `type` | 说明 | 额外字段 |
+| `type` | Description | Additional fields |
 | --- | --- | --- |
-| `null` | CEL null | 无 |
-| `bool` | 布尔值 | 无 |
-| `int` | 有符号 64 位整数 | 无 |
-| `uint` | 无符号 64 位整数 | 无 |
-| `double` | 双精度浮点数 | 无 |
-| `string` | UTF-8 字符串 | 无 |
-| `bytes` | 字节串 | 无 |
-| `timestamp` | 时间戳 | 无 |
-| `duration` | 时间间隔 | 无 |
-| `dyn` | 动态类型 | 无 |
-| `list` | 列表 | 必须有 `element` |
-| `map` | 映射 | 必须有 `key` 和 `value` |
+| `null` | CEL null | None |
+| `bool` | Boolean | None |
+| `int` | Signed 64-bit integer | None |
+| `uint` | Unsigned 64-bit integer | None |
+| `double` | Double-precision floating point | None |
+| `string` | UTF-8 string | None |
+| `bytes` | Byte string | None |
+| `timestamp` | Timestamp | None |
+| `duration` | Duration | None |
+| `dyn` | Dynamic type | None |
+| `list` | List | Requires `element` |
+| `map` | Map | Requires `key` and `value` |
 
-`map` 的 key 类型当前只支持 `bool`、`int`、`uint` 和 `string`。普通 Dart JSON
-map 的 key 必须是字符串；如果需要 CEL 的非字符串 map key，应使用
-`CelMapValue`，见下文。
+Map key types currently support only `bool`, `int`, `uint`, and `string`. A
+regular Dart JSON map must use string keys. For a CEL map with non-string keys,
+use `CelMapValue` as shown below.
 
-变量名必须是 ASCII 标识符：首字符为字母或 `_`，后续可以包含字母、数字和 `_`。
-`if`、`in`、`true`、`false`、`null`、`var` 等 CEL 保留字不能作为变量名。
+Variable names must be ASCII identifiers: the first character must be a letter
+or `_`, followed by letters, digits, or `_`. CEL reserved words such as `if`,
+`in`, `true`, `false`, `null`, and `var` cannot be used as variable names.
 
-## 5. Dart 输入值和返回值
+## 5. Dart input and return values
 
-### 输入变量
+### Input variables
 
-普通 JSON 值可以直接传入：
+Ordinary JSON values can be passed directly:
 
 ```dart
 final variables = <String, Object?>{
@@ -228,17 +241,17 @@ final variables = <String, Object?>{
 };
 ```
 
-需要精确表达 CEL 类型时使用以下 Dart 类型：
+Use the following Dart types when the CEL type must be represented precisely:
 
-| Dart 类型 | CEL 类型 | 说明 |
+| Dart type | CEL type | Description |
 | --- | --- | --- |
-| `BigInt` | `int` 或 `uint` | 用于避免大整数被 JSON/JavaScript 精度截断 |
-| `Uint8List` | `bytes` | 自动进行 Base64 wire 编码 |
-| `DateTime` | `timestamp` | 会转换为 UTC |
-| `CelDurationValue` | `duration` | 例如 `const CelDurationValue(seconds: 2)` |
-| `CelValue` | 对应的明确 CEL 类型 | 用于列表、map、特殊浮点数等场景 |
+| `BigInt` | `int` or `uint` | Avoids precision loss for large integers in JSON/JavaScript |
+| `Uint8List` | `bytes` | Automatically uses Base64 wire encoding |
+| `DateTime` | `timestamp` | Converted to UTC |
+| `CelDurationValue` | `duration` | For example, `const CelDurationValue(seconds: 2)` |
+| `CelValue` | The corresponding explicit CEL type | For lists, maps, special floating-point values, and similar cases |
 
-示例：
+Example:
 
 ```dart
 import 'dart:typed_data';
@@ -251,8 +264,9 @@ final variables = <String, Object?>{
 };
 ```
 
-`BigInt` 为负数或不超过有符号 64 位上限时按 `int` 编码，更大的非负值按
-`uint` 编码。需要明确指定时可以直接使用：
+Negative `BigInt` values and values within the signed 64-bit range are encoded
+as `int`; larger non-negative values are encoded as `uint`. Use the following
+types when the encoding must be explicit:
 
 ```dart
 final variables = <String, Object?>{
@@ -261,7 +275,7 @@ final variables = <String, Object?>{
 };
 ```
 
-非字符串 CEL map key 使用 `CelMapValue`：
+Use `CelMapValue` for non-string CEL map keys:
 
 ```dart
 final variables = <String, Object?>{
@@ -272,14 +286,14 @@ final variables = <String, Object?>{
 };
 ```
 
-### 返回值
+### Return values
 
-`evaluate` 返回 `CelValue`，不要把它直接强制转换成 Dart 原始类型；根据具体
-子类读取值：
+`evaluate` returns a `CelValue`. Do not cast it directly to a Dart primitive;
+read the value from its concrete subclass:
 
-| 类型 | 字段 |
+| Type | Fields |
 | --- | --- |
-| `CelNullValue` | 无 |
+| `CelNullValue` | None |
 | `CelBoolValue` | `bool value` |
 | `CelIntValue` | `BigInt value` |
 | `CelUintValue` | `BigInt value` |
@@ -287,11 +301,11 @@ final variables = <String, Object?>{
 | `CelStringValue` | `String value` |
 | `CelBytesValue` | `Uint8List value` |
 | `CelTimestampValue` | UTC `DateTime value` |
-| `CelDurationValue` | `int seconds`、`int nanoseconds` |
+| `CelDurationValue` | `int seconds`, `int nanoseconds` |
 | `CelListValue` | `List<CelValue> values` |
 | `CelMapValue` | `List<CelMapEntry> entries` |
 
-推荐使用 Dart pattern matching 或普通 `is` 判断：
+Prefer Dart pattern matching or ordinary `is` checks:
 
 ```dart
 String display(CelValue value) {
@@ -303,12 +317,13 @@ String display(CelValue value) {
 }
 ```
 
-`toJson()` 适合日志和调试，不建议把它当作业务层的稳定字符串格式；业务代码
-应读取上述类型字段。
+`toJson()` is useful for logging and debugging, but should not be treated as a
+stable business-layer string format. Business code should read the typed fields
+above.
 
-## 6. 错误处理和校验结果
+## 6. Error handling and validation results
 
-所有运行时错误都通过 `CelBridgeException` 抛出：
+All runtime errors are thrown as `CelBridgeException`:
 
 ```dart
 try {
@@ -323,36 +338,38 @@ try {
     case 'compile_error':
     case 'evaluation_error':
     case 'cost_limit_exceeded':
-      // 展示给规则编辑器或业务层。
+      // Display the error to the rule editor or business layer.
       print(error.message);
       break;
     default:
-      // 记录完整错误并按基础设施错误处理。
+      // Log the complete error and handle it as an infrastructure failure.
       print('${error.code}: ${error.message}');
   }
 }
 ```
 
-应根据 `error.code` 分支，不要根据 `message` 文本匹配。常见顶层错误码：
+Branch on `error.code`, not on the human-readable `message`. Common top-level
+error codes include:
 
-| 错误码 | 含义 |
+| Error code | Meaning |
 | --- | --- |
-| `invalid_request` | 请求结构、变量 JSON 或输入值不合法 |
-| `invalid_environment` | schema、变量名或类型定义不合法 |
-| `source_too_large` | CEL 源码超过 64 KiB |
-| `variables_too_large` | 变量 JSON 超过 1 MiB |
-| `output_too_large` | 返回值超过 1 MiB |
-| `compile_error` | 执行时编译 CEL 失败 |
-| `evaluation_error` | CEL 执行返回错误 |
-| `cost_limit_exceeded` | 执行成本超过限制 |
-| `unsupported_value` | 返回值不能用当前 wire format 表示 |
-| `protocol_mismatch` | Dart API 和 runtime 协议版本不一致 |
-| `runtime_mismatch` | Dart 包和 native/Wasm runtime 版本不一致 |
-| `native_library_load_failed` | 动态库加载或 native 调用失败 |
-| `wasm_load_failed` | Wasm 或 `wasm_exec.js` 加载失败 |
-| `internal_error` | 未预期的 runtime 错误 |
+| `invalid_request` | Request structure, variable JSON, or input value is invalid |
+| `invalid_environment` | Environment schema, variable name, or type definition is invalid |
+| `source_too_large` | CEL source exceeds 64 KiB |
+| `variables_too_large` | Variable JSON exceeds 1 MiB |
+| `output_too_large` | Result exceeds 1 MiB |
+| `compile_error` | CEL compilation failed during evaluation |
+| `evaluation_error` | CEL evaluation returned an error |
+| `cost_limit_exceeded` | Evaluation cost exceeded the limit |
+| `unsupported_value` | The result cannot be represented by the current wire format |
+| `protocol_mismatch` | Dart API and runtime protocol versions do not match |
+| `runtime_mismatch` | Dart package and native/Wasm runtime versions do not match |
+| `native_library_load_failed` | Native library loading or invocation failed |
+| `wasm_load_failed` | Wasm or `wasm_exec.js` could not be loaded |
+| `internal_error` | Unexpected runtime error |
 
-`CelValidationResult` 的错误不是异常，而是 `issues`：
+`CelValidationResult` reports validation errors in `issues` rather than as
+exceptions:
 
 ```dart
 final result = await runtime.validate(
@@ -368,34 +385,35 @@ if (!result.valid) {
 }
 ```
 
-常见 issue code 包括 `parse_error`、`undeclared_reference`、`type_error` 和
-`compile_error`。环境非法、源码超限等请求级错误仍会抛出
-`CelBridgeException`。
+Common issue codes include `parse_error`, `undeclared_reference`, `type_error`,
+and `compile_error`. Request-level errors such as an invalid environment or
+oversized source still throw `CelBridgeException`.
 
-### v0.1.0 限制
+### v0.1.0 limits
 
-这些限制由 Go runtime 固定，不是 Dart 侧可配置项：
+These limits are fixed by the Go runtime and cannot be configured from Dart:
 
-- 源码和环境 schema 最大 64 KiB；
-- 变量输入和返回结果最大 1 MiB；
-- schema 类型嵌套最大 16 层；
-- 变量值嵌套最大 32 层；
-- 单个 list/map 最大 4096 项；
-- CEL evaluation cost 上限为 100,000；
-- 最多返回 32 个校验 issue。
+- source and environment schema: 64 KiB maximum;
+- variable input and result: 1 MiB maximum;
+- schema type nesting: 16 levels maximum;
+- variable value nesting: 32 levels maximum;
+- each list/map: 4096 items maximum;
+- CEL evaluation cost: 100,000 maximum;
+- validation issues: 32 maximum.
 
-当前 runtime 不提供自定义函数、proto 类型或 checked-AST artifact；这些能力
-会在 `runtime.info.features` 中体现。`v0.1.0` 只有 `costLimit` 为 true。
+The current runtime does not provide custom functions, proto types, or
+checked-AST artifacts; these capabilities are exposed through
+`runtime.info.features`. In `v0.1.0`, only `costLimit` is true.
 
-## 7. Native 资产模式
+## 7. Native asset modes
 
-Dart/Flutter 应用不需要自己调用 `DynamicLibrary.open`、`System.loadLibrary` 或
-C ABI。package hook 会在构建阶段准备代码资产，Dart 代码仍然只调用
-`CelRuntime`。
+Dart/Flutter applications do not need to call `DynamicLibrary.open`,
+`System.loadLibrary`, or the C ABI themselves. The package hook prepares code
+assets during the build, while Dart code continues to call only `CelRuntime`.
 
-### 7.1 使用固定 Release 资产（推荐）
+### 7.1 Use fixed Release assets (recommended)
 
-在消费应用的 `pubspec.yaml` 中显式选择 Release 资产：
+Explicitly select Release assets in the consuming application's `pubspec.yaml`:
 
 ```yaml
 hooks:
@@ -404,20 +422,22 @@ hooks:
       build_from_source: false
 ```
 
-构建时 hook 会：
+During the build, the hook will:
 
-1. 根据当前平台和架构选择 target；
-2. 下载同版本的 manifest；
-3. 从 manifest 找到对应 archive；
-4. 校验 archive 大小和 SHA-256；
-5. 解压并把 native library 交给 Dart code assets；
-6. iOS 由 CocoaPods script phase 准备静态 XCFramework。
+1. select the target for the current platform and architecture;
+2. download the manifest for the same version;
+3. find the corresponding archive in the manifest;
+4. verify the archive size and SHA-256 checksum;
+5. extract the native library and provide it to Dart code assets;
+6. prepare the static XCFramework on iOS through the CocoaPods script phase.
 
-这样应用构建机不需要 Go，且不会使用 `latest` 或未固定的 Release URL。
+This means application build machines do not need Go and never use `latest` or
+an unpinned Release URL.
 
-### 7.2 从源码构建
+### 7.2 Build from source
 
-源码构建适合仓库开发、离线调试或需要自己编译 runtime 的场景：
+Source builds are useful for repository development, offline debugging, or
+cases where the runtime must be compiled locally:
 
 ```yaml
 hooks:
@@ -426,13 +446,15 @@ hooks:
       build_from_source: true
 ```
 
-源码构建会在 package checkout 中执行 Go build。Linux、macOS、Windows 需要
-对应平台的 C 编译器；Android 需要 NDK；iOS 需要 Xcode SDK。CI 和仓库中的
-[`example/dart_cli/pubspec.yaml`](../example/dart_cli/pubspec.yaml) 以及
-[`example/flutter_app/pubspec.yaml`](../example/flutter_app/pubspec.yaml) 都使用
-这一模式，便于直接从 checkout 验证代码。
+Source builds run `go build` in the package checkout. Linux, macOS, and
+Windows require the platform C compiler; Android requires the NDK; and iOS
+requires the Xcode SDK. CI and the repository's
+[`example/dart_cli/pubspec.yaml`](../example/dart_cli/pubspec.yaml) and
+[`example/flutter_app/pubspec.yaml`](../example/flutter_app/pubspec.yaml) both use
+this mode so the code can be verified directly from the checkout.
 
-如果需要先准备当前主机的 native 缓存，在 `cel-bridge` checkout 根目录执行：
+To prepare the native cache for the current host first, run this from the
+`cel-bridge` checkout root:
 
 ```bash
 dart pub get
@@ -440,15 +462,15 @@ CEL_BRIDGE_BUILD_FROM_SOURCE=1 dart run bin/prepare.dart \
   --target linux-x86_64
 ```
 
-可用 target 还包括 `macos-arm64`、`macos-x86_64`、
-`windows-x86_64`、`android-arm64-v8a`、`android-armeabi-v7a`、
-`android-x86_64`、`ios-arm64` 和两个 iOS simulator target。target 必须和
-实际构建平台匹配。
+Other available targets include `macos-arm64`, `macos-x86_64`,
+`windows-x86_64`, `android-arm64-v8a`, `android-armeabi-v7a`,
+`android-x86_64`, `ios-arm64`, and two iOS simulator targets. The target must
+match the platform being built.
 
-### 7.3 使用本地已编译资产
+### 7.3 Use locally compiled assets
 
-如果组织内部已有 native library，可以让 hook 从本地目录复制，并继续校验
-`.sha256`：
+If your organization already has a native library, the hook can copy it from a
+local directory and continue to verify its `.sha256` checksum:
 
 ```yaml
 hooks:
@@ -457,7 +479,7 @@ hooks:
       artifact_directory: "file:///absolute/path/to/artifacts/"
 ```
 
-目录可以直接放库，也可以按 target 分目录：
+The directory can contain the library directly or organize it by target:
 
 ```text
 artifacts/
@@ -466,13 +488,13 @@ artifacts/
     └── libcel_bridge.so.sha256
 ```
 
-`artifact_directory` 接受带结尾 `/` 的绝对文件目录 URI。它指向的是解压后的
-native library，不是 Release archive；缺少 checksum 或 checksum 不匹配会直接
-失败。
+`artifact_directory` accepts an absolute file-directory URI with a trailing `/`.
+It points to an extracted native library, not a Release archive. A missing or
+mismatched checksum fails the build immediately.
 
-### 7.4 使用内部 Release 镜像
+### 7.4 Use an internal Release mirror
 
-如果构建环境不能访问 GitHub，可以配置一个 HTTPS 镜像：
+If the build environment cannot access GitHub, configure an HTTPS mirror:
 
 ```yaml
 hooks:
@@ -482,8 +504,8 @@ hooks:
       release_base_url: "https://artifacts.example.com/cel-bridge/v0.1.0"
 ```
 
-镜像必须提供当前版本的 manifest 和所有目标 archive，文件名必须保持不变，
-例如：
+The mirror must provide the manifest and every target archive for the current
+version, with the original filenames unchanged. For example:
 
 ```text
 cel-bridge-manifest-v0.1.0.json
@@ -492,15 +514,16 @@ cel-bridge-android-arm64-v8a-v0.1.0.tar.gz
 ...
 ```
 
-生产环境要求 HTTPS。`allow_insecure_release_base: true` 只适用于
-`http://127.0.0.1` 或 `http://localhost` 的本地测试，不要用于公网或生产镜像。
+Production environments require HTTPS. `allow_insecure_release_base: true` is
+only for local tests using `http://127.0.0.1` or `http://localhost`; do not use
+it for public or production mirrors.
 
-## 8. Flutter 接入
+## 8. Flutter integration
 
-### 8.1 在 Flutter 应用中调用
+### 8.1 Call from a Flutter application
 
-Flutter 侧和普通 Dart 侧使用同一套 API，不需要手写 Android JNI、iOS
-MethodChannel 或 desktop 动态库加载代码：
+Flutter and ordinary Dart use the same API. You do not need to write Android
+JNI, iOS MethodChannel, or desktop dynamic-library loading code:
 
 ```dart
 import 'package:flutter/widgets.dart';
@@ -537,30 +560,31 @@ class _RuleScreenState extends State<RuleScreen> {
 
     if (!mounted) return;
     if (result is CelBoolValue) {
-      // 更新 UI 或提交业务结果。
+      // Update the UI or submit the business result.
       debugPrint('allowed: ${result.value}');
     }
   }
 }
 ```
 
-`CelRuntime.initialize()`、`validate` 和 `evaluate` 都是异步 API。不要在
-`build()` 中重复发起初始化或执行；把 runtime future 放在 `initState`、Provider、
-Riverpod/Bloc service 或其他生命周期稳定的对象中。
+`CelRuntime.initialize()`, `validate`, and `evaluate` are all asynchronous
+APIs. Do not repeatedly initialize or evaluate from `build()`; keep the runtime
+future in `initState`, a Provider, a Riverpod/Bloc service, or another object
+with a stable lifecycle.
 
-### 8.2 运行仓库中的 Flutter workbench
+### 8.2 Run the repository's Flutter workbench
 
-[`example/flutter_app`](../example/flutter_app) 是一个可直接修改的 workbench，
-包含：
+[`example/flutter_app`](../example/flutter_app) is a workbench that can be
+modified directly. It includes:
 
-- CEL source 编辑；
-- environment 和 variables JSON 编辑；
-- Validate 和 Evaluate；
-- runtime version、protocol version、CEL-Go version 展示；
-- 类型化结果、耗时和结构化错误展示；
-- Web、desktop、Android、iOS 的构建入口。
+- CEL source editing;
+- environment and variables JSON editing;
+- Validate and Evaluate actions;
+- runtime version, protocol version, and CEL-Go version display;
+- typed results, timing, and structured error display;
+- build entry points for Web, desktop, Android, and iOS.
 
-运行 Web 版本：
+Run the Web version:
 
 ```bash
 cd example/flutter_app
@@ -568,51 +592,56 @@ flutter pub get
 flutter run -d chrome
 ```
 
-其中的核心调用位于
-[`lib/src/workbench_view.dart`](../example/flutter_app/lib/src/workbench_view.dart)。
-如果要把 workbench 改造成业务页面，可以优先复用 `_runtime`、`_run`、环境解析
-和错误展示的结构。
+The core call is in
+[`lib/src/workbench_view.dart`](../example/flutter_app/lib/src/workbench_view.dart).
+To turn the workbench into a business page, start by reusing the `_runtime`,
+`_run`, environment parsing, and error-display structures.
 
-Flutter widget 单测：
+Flutter widget tests:
 
 ```bash
 cd example/flutter_app
 flutter test
 ```
 
-设备集成测试：
+Device integration tests:
 
 ```bash
 flutter test integration_test/runtime_test.dart
 ```
 
-集成测试会真正初始化 runtime、执行默认表达式，并确认结果为 `true`。
+The integration test initializes the real runtime, evaluates the default
+expression, and verifies that the result is `true`.
 
-## 9. 各平台注意事项
+## 9. Platform notes
 
 ### Android
 
-- 不需要手动复制 `libcel_bridge.so` 或调用 `System.loadLibrary`；
-- Flutter code assets 会把正确 ABI 的库放入应用；
-- 发布 APK/AAB 前至少在目标 ABI 上执行一次 runtime 集成测试；
-- 模拟器通常使用 `android-x86_64`，真机常用 `android-arm64-v8a`；
-- 如果选择源码构建，确保 NDK 的 clang 可用；否则使用 Release 资产模式。
+- Do not copy `libcel_bridge.so` manually or call `System.loadLibrary`;
+- Flutter code assets place the library for the correct ABI into the application;
+- run at least one runtime integration test on the target ABI before publishing
+  an APK/AAB;
+- emulators typically use `android-x86_64`, while physical devices commonly use
+  `android-arm64-v8a`;
+- if you choose a source build, ensure the NDK's clang is available; otherwise
+  use Release asset mode.
 
 ### iOS
 
-iOS 的 Go runtime 是静态库，当前 Flutter native-assets 输入无法直接声明这个
-动态库形态，因此 package 使用 iOS plugin fallback：CocoaPods 在构建前准备
-XCFramework，Dart API 不变。
+The Go runtime on iOS is a static library. Flutter's current native-assets input
+cannot declare this dynamic-library shape directly, so the package uses an iOS
+plugin fallback: CocoaPods prepares the XCFramework before the build, while the
+Dart API remains unchanged.
 
-要求和行为：
+Requirements and behavior:
 
-- iOS deployment target 为 13.0；
-- Flutter 构建会自动运行 pod script phase；
-- script phase 会从 Release 下载并校验
-  `cel-bridge-ios-xcframework-v0.1.0.zip`；
-- 运行时不会因为 CEL 调用去下载代码；
-- 可以用 `CEL_BRIDGE_IOS_XCFRAMEWORK_PATH` 指向本地 XCFramework；
-- 也可以用以下环境变量指定内部镜像：
+- the iOS deployment target is 13.0;
+- Flutter builds run the pod script phase automatically;
+- the script phase downloads and verifies
+  `cel-bridge-ios-xcframework-v0.1.0.zip` from the Release;
+- runtime CEL calls never download executable code;
+- `CEL_BRIDGE_IOS_XCFRAMEWORK_PATH` can point to a local XCFramework;
+- the following environment variables can point to an internal mirror:
 
 ```bash
 export CEL_BRIDGE_IOS_XCFRAMEWORK_URL="https://artifacts.example.com/cel-bridge/v0.1.0/cel-bridge-ios-xcframework-v0.1.0.zip"
@@ -621,23 +650,25 @@ export CEL_BRIDGE_IOS_XCFRAMEWORK_CHECKSUM_URL="https://artifacts.example.com/ce
 flutter build ios --simulator --no-codesign
 ```
 
-如果提供 `CEL_BRIDGE_IOS_XCFRAMEWORK_SHA256`，它会优先于 checksum URL；否则
-script 会从 `checksums.txt` 读取对应文件的 SHA-256。
+If `CEL_BRIDGE_IOS_XCFRAMEWORK_SHA256` is provided, it takes precedence over
+the checksum URL. Otherwise, the script reads the file's SHA-256 from
+`checksums.txt`.
 
 ### macOS / Linux / Windows
 
-这些平台使用动态加载的 code asset。正常情况下无需配置额外的 Dart 或 C ABI
-代码；如果看到 `native_library_load_failed`，优先检查：
+These platforms use dynamically loaded code assets. Normally, no additional Dart
+or C ABI code is required. If you see `native_library_load_failed`, check the
+following first:
 
-1. 当前架构是否在支持列表中；
-2. `dart pub get` 或 `flutter pub get` 是否在正确的应用目录执行；
-3. Release manifest 和 archive 是否能从构建机访问；
-4. 是否误把其他平台的 `artifact_directory` 指给了当前构建；
-5. 源码模式下 Go/C 编译器版本是否正确。
+1. whether the current architecture is supported;
+2. whether `dart pub get` or `flutter pub get` was run in the correct application directory;
+3. whether the Release manifest and archive are accessible from the build machine;
+4. whether `artifact_directory` accidentally points to another platform's assets;
+5. whether the Go/C compiler versions are correct in source-build mode.
 
 ### Web
 
-Web backend 使用 `CelRuntimeOptions` 中的 Wasm URL：
+The Web backend uses the Wasm URLs in `CelRuntimeOptions`:
 
 ```dart
 final runtime = await CelRuntime.initialize(
@@ -650,7 +681,7 @@ final runtime = await CelRuntime.initialize(
 );
 ```
 
-生产环境更推荐保留 SRI，而不是关闭 integrity：
+For production, retaining SRI is recommended instead of disabling integrity:
 
 ```dart
 final runtime = await CelRuntime.initialize(
@@ -663,17 +694,18 @@ final runtime = await CelRuntime.initialize(
 );
 ```
 
-Wasm 和 `wasm_exec.js` 必须由同一个应用可访问的 HTTPS host 提供，并配置正确
-的 CORS header。自托管时，两个文件必须来自同一个 cel-bridge 版本。
+`wasm_exec.js` and `cel_bridge.wasm` must be served by the same HTTPS host
+accessible to the application, with the correct CORS headers. When self-hosting,
+both files must come from the same cel-bridge version.
 
-如果资产从源码构建，在 cel-bridge checkout 根目录执行：
+If the assets are built from source, run this from the cel-bridge checkout root:
 
 ```bash
 CEL_BRIDGE_BUILD_FROM_SOURCE=1 dart run bin/prepare.dart \
   --platform web --output example/flutter_app/web
 ```
 
-然后在 Flutter Web 构建时指向这些文件：
+Then point the Flutter Web build at these files:
 
 ```bash
 cd example/flutter_app
@@ -683,13 +715,14 @@ flutter build web --debug \
   --dart-define=CEL_BRIDGE_WASM_EXEC_URL=/wasm_exec.js
 ```
 
-如果自托管文件使用自定义 SRI，还要同时设置
-`CEL_BRIDGE_WASM_INTEGRITY` 和 `CEL_BRIDGE_WASM_EXEC_INTEGRITY`，或在 Dart
-代码中传入对应的 `CelRuntimeOptions`。
+If the self-hosted files use custom SRI values, also set
+`CEL_BRIDGE_WASM_INTEGRITY` and `CEL_BRIDGE_WASM_EXEC_INTEGRITY`, or pass the
+corresponding `CelRuntimeOptions` from Dart.
 
-## 10. 测试建议
+## 10. Testing recommendations
 
-接入方至少保留一条包含真实 runtime 的测试，而不只测试 UI：
+Consumers should keep at least one test that uses the real runtime, rather than
+testing only the UI:
 
 ```dart
 test('evaluates the business rule', () async {
@@ -709,42 +742,43 @@ test('evaluates the business rule', () async {
 });
 ```
 
-建议测试层次：
+Recommended test layers:
 
-1. schema 和 CEL source 的 `validate` 单测；
-2. 关键业务规则的 `evaluate` runtime 测试；
-3. Flutter widget test，确认错误和结果能显示；
-4. Android/iOS 至少各执行一次真实设备或 simulator/emulator 集成测试；
-5. Web 使用实际部署的 Wasm 文件执行一次 smoke test。
+1. unit tests for `validate` with the schema and CEL source;
+2. runtime tests for `evaluate` with critical business rules;
+3. Flutter widget tests that verify errors and results are displayed;
+4. at least one real-device or simulator/emulator integration test on each of Android and iOS;
+5. one Web smoke test using the deployed Wasm files.
 
-仓库本身的验证命令和测试夹具见：
+For the repository's own verification commands and test fixtures, see:
 
-- [`example/flutter_app/test/workbench_test.dart`](../example/flutter_app/test/workbench_test.dart)；
-- [`example/flutter_app/integration_test/runtime_test.dart`](../example/flutter_app/integration_test/runtime_test.dart)；
-- [`test/native_runtime_test.dart`](../test/native_runtime_test.dart)；
-- [`tool/release_consumer`](../tool/release_consumer)。
+- [`example/flutter_app/test/workbench_test.dart`](../example/flutter_app/test/workbench_test.dart);
+- [`example/flutter_app/integration_test/runtime_test.dart`](../example/flutter_app/integration_test/runtime_test.dart);
+- [`test/native_runtime_test.dart`](../test/native_runtime_test.dart);
+- [`tool/release_consumer`](../tool/release_consumer).
 
-## 11. 版本升级清单
+## 11. Upgrade checklist
 
-升级 `cel_bridge` 时不要只改 Dart 依赖版本：
+When upgrading `cel_bridge`, do not change only the Dart dependency version:
 
-1. 把 Git dependency 的 `ref` 更新到目标 tag；
-2. 确认目标 tag 的 Release manifest 存在；
-3. 确认应用构建机能下载对应 native archive 或 Wasm 文件；
-4. 清理并重新生成应用的 native assets（Flutter 项目可先执行 `flutter clean`）；
-5. 检查 `runtime.info.runtimeVersion` 和 `protocolVersion`；
-6. 重新执行 native、iOS 和 Web 的最小 runtime 测试。
+1. update the Git dependency's `ref` to the target tag;
+2. verify that the Release manifest exists for the target tag;
+3. verify that the application build machine can download the corresponding native archive or Wasm files;
+4. clean and regenerate the application's native assets (a Flutter project can run `flutter clean` first);
+5. check `runtime.info.runtimeVersion` and `protocolVersion`;
+6. rerun the smallest native, iOS, and Web runtime tests.
 
-不要把一个版本的 Dart package、另一个版本的 manifest 和第三个版本的动态库
-混用。库在初始化和构建 hook 阶段都会做版本或 checksum 校验，校验失败是预期的
-安全行为。
+Do not mix a Dart package from one version, a manifest from another version, and
+a dynamic library from a third version. The library verifies the version or
+checksum during initialization and in the build hook; a failed verification is
+expected security behavior.
 
-## 12. 相关文件和链接
+## 12. Related files and links
 
-- [项目 README](../README.md)：安装和架构摘要；
-- [Dart CLI example](../example/dart_cli)：最小命令行接入；
-- [Flutter workbench](../example/flutter_app)：可运行的跨平台示例；
-- [公开 Dart API](../lib/cel_bridge.dart)：所有对外导出的类型；
-- [构建 hook](../hook/build.dart)：Release、源码和本地资产选择逻辑；
-- [iOS CocoaPods 配置](../ios/cel_bridge.podspec)：XCFramework 下载和校验；
-- [v0.1.0 Release](https://github.com/0xfe10/cel-bridge/releases/tag/v0.1.0)：动态库、XCFramework 和 Wasm 资产。
+- [Project README](../README.md): installation and architecture summary;
+- [Dart CLI example](../example/dart_cli): minimal command-line integration;
+- [Flutter workbench](../example/flutter_app): runnable cross-platform example;
+- [Public Dart API](../lib/cel_bridge.dart): all publicly exported types;
+- [Build hook](../hook/build.dart): Release, source, and local-asset selection logic;
+- [iOS CocoaPods configuration](../ios/cel_bridge.podspec): XCFramework download and verification;
+- [v0.1.0 Release](https://github.com/0xfe10/cel-bridge/releases/tag/v0.1.0): dynamic libraries, XCFramework, and Wasm assets.
