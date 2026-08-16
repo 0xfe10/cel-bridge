@@ -578,7 +578,7 @@ jobs:
 
       - name: Run downloaded Android runtime integration test
         if: matrix.kind == 'android'
-        uses: reactivecircus/android-emulator-runner@cad321644df6d8cf1985a42767272ff068adb9cb
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
         with:
           api-level: 35
           target: google_apis
