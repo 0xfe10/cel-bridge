@@ -542,6 +542,21 @@ jobs:
           set -euo pipefail
           cp -R example/flutter_app build/release-ios-example
           python3 -c "from pathlib import Path; p=Path('build/release-ios-example/pubspec.yaml'); s=p.read_text(); old='      build_from_source: true'; new='      release_base_url: http://127.0.0.1:8125/\\n      allow_insecure_release_base: true'; assert old in s, 'example hook configuration changed'; p.write_text(s.replace(old, new))"
+          python3 -m http.server 8125 --directory build/release-download \
+            >build/release-download/http.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid"' EXIT
+          for attempt in $(seq 1 20); do
+            if curl --fail --silent http://127.0.0.1:8125/ >/dev/null; then
+              break
+            fi
+            sleep 1
+          done
+          export CEL_BRIDGE_IOS_XCFRAMEWORK_URL="http://127.0.0.1:8125/cel-bridge-ios-xcframework-v$(cat VERSION).zip"
+          export CEL_BRIDGE_IOS_XCFRAMEWORK_CHECKSUM_URL="http://127.0.0.1:8125/checksums.txt"
+          cd build/release-ios-example
+          flutter pub get
+          flutter build ios --simulator --no-codesign --no-pub
 
       - name: Run downloaded iOS runtime integration test
         if: matrix.kind == 'ios'
@@ -566,7 +581,7 @@ jobs:
           test -n "$device_id"
           xcrun simctl boot "$device_id" 2>/dev/null || true
           xcrun simctl bootstatus "$device_id" -b
-          flutter test integration_test/runtime_test.dart -d "$device_id"
+          flutter test --no-pub integration_test/runtime_test.dart -d "$device_id"
 
       - name: Prepare Android release consumer
         if: matrix.kind == 'android'
@@ -575,6 +590,19 @@ jobs:
           set -euo pipefail
           cp -R example/flutter_app build/release-android-example
           python3 -c "from pathlib import Path; p=Path('build/release-android-example/pubspec.yaml'); s=p.read_text(); old='      build_from_source: true'; new='      release_base_url: http://127.0.0.1:8125/\\n      allow_insecure_release_base: true'; assert old in s, 'example hook configuration changed'; p.write_text(s.replace(old, new))"
+          python3 -m http.server 8125 --directory build/release-download \
+            >build/release-download/http.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid"' EXIT
+          for attempt in $(seq 1 20); do
+            if curl --fail --silent http://127.0.0.1:8125/ >/dev/null; then
+              break
+            fi
+            sleep 1
+          done
+          cd build/release-android-example
+          flutter pub get
+          flutter build apk --debug --no-pub
 
       - name: Enable KVM group perms
         if: matrix.kind == 'android'
@@ -598,7 +626,7 @@ jobs:
           emulator-options: -no-window -no-audio -no-boot-anim
           disable-animations: true
           script: >-
-            set -eu; python3 -m http.server 8125 --directory build/release-download >build/release-download/http.log 2>&1 & server_pid=$!; trap 'kill "$server_pid"' 0; for attempt in $(seq 1 20); do if curl --fail --silent http://127.0.0.1:8125/ >/dev/null; then break; fi; sleep 1; done; cd build/release-android-example; flutter pub get; flutter test integration_test/runtime_test.dart -d emulator-5554
+            set -eu; python3 -m http.server 8125 --directory build/release-download >build/release-download/http.log 2>&1 & server_pid=$!; trap 'kill "$server_pid"' 0; for attempt in $(seq 1 20); do if curl --fail --silent http://127.0.0.1:8125/ >/dev/null; then break; fi; sleep 1; done; cd build/release-android-example; flutter test --no-pub integration_test/runtime_test.dart -d emulator-5554
 
   publish-check:
     needs: [version, release-consumption, release-platform-consumption]
