@@ -598,11 +598,11 @@ jobs:
           emulator-options: -no-window -no-audio -no-boot-anim
           disable-animations: true
           script: |
-            set -euo pipefail
+            set -eu
             python3 -m http.server 8125 --directory build/release-download \
               >build/release-download/http.log 2>&1 &
             server_pid=$!
-            trap 'kill "$server_pid"' EXIT
+            trap 'kill "$server_pid"' 0
             for attempt in $(seq 1 20); do
               if curl --fail --silent http://127.0.0.1:8125/ >/dev/null; then
                 break
