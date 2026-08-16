@@ -43,8 +43,10 @@ flutter {
     source = "../.."
 }
 
-tasks.matching { name == "compileFlutterBuildDebug" }.configureEach {
-    dependsOn("checkDebugAarMetadata")
-    dependsOn("mergeDebugNativeDebugMetadata")
-    dependsOn(":integration_test:writeDebugAarMetadata")
+tasks.configureEach {
+    if (name == "compileFlutterBuildDebug") {
+        dependsOn("checkDebugAarMetadata")
+        dependsOn("mergeDebugNativeDebugMetadata")
+        dependsOn(":integration_test:writeDebugAarMetadata")
+    }
 }
