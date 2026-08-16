@@ -172,7 +172,6 @@ Future<ArtifactBuild> buildNativeArtifact({
     'go',
     [
       'build',
-      '-a',
       '-trimpath',
       '-buildmode=${target.staticLinking ? 'c-archive' : 'c-shared'}',
       '-o',
@@ -270,6 +269,7 @@ Future<WasmBuild> buildWasmArtifact({
     'go',
     [
       'build',
+      '-a',
       '-trimpath',
       '-ldflags=-buildid=cel-bridge-v${packageVersion(root)}',
       '-o',
