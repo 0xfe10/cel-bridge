@@ -71,18 +71,11 @@ jobs:
           set -euo pipefail
           successful_runs="$(gh run list \
             --repo "$GITHUB_REPOSITORY" \
-            --workflow ci.yml \
+            --workflow check.yml \
             --commit "$RELEASE_COMMIT" \
             --json status,conclusion \
             --jq '[.[] | select(.status == "completed" and .conclusion == "success")] | length')"
           test "$successful_runs" -ge 1
-          successful_platform_runs="$(gh run list \
-            --repo "$GITHUB_REPOSITORY" \
-            --workflow platform-ci.yml \
-            --commit "$RELEASE_COMMIT" \
-            --json status,conclusion \
-            --jq '[.[] | select(.status == "completed" and .conclusion == "success")] | length')"
-          test "$successful_platform_runs" -ge 1
           main_comparison="$(gh api \
             "repos/$GITHUB_REPOSITORY/compare/$RELEASE_COMMIT...main" \
             --jq .status)"

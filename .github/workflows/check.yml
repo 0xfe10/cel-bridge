@@ -1,4 +1,4 @@
-name: Platform CI
+name: Check
 
 on:
   push:
@@ -12,7 +12,73 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: check-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Set up Go
+        uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00
+        with:
+          go-version: '1.26.5'
+          cache: true
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@1508160852fb97248640997f7cfb38da241df0ba
+        with:
+          channel: stable
+          cache: true
+
+      - name: Download Go dependencies
+        run: go mod download
+
+      - name: Check Go formatting
+        run: test -z "$(gofmt -l .)"
+
+      - name: Run go vet
+        run: go vet ./...
+
+      - name: Run Go tests
+        run: go test ./...
+
+      - name: Run Go race tests
+        run: go test -race ./...
+
+      - name: Get Dart dependencies
+        run: dart pub get
+
+      - name: Check Dart formatting
+        run: dart format --output=none --set-exit-if-changed .
+
+      - name: Analyze Dart package
+        run: dart analyze lib test bin hook tool/*.dart
+
+      - name: Test Dart package
+        run: dart test
+
+      - name: Verify package versions
+        run: dart run tool/verify_versions.dart
+
+      - name: Check Dart CLI example
+        working-directory: example/dart_cli
+        run: |
+          dart pub get
+          dart analyze
+          dart run
+
+      - name: Check Flutter example
+        working-directory: example/flutter_app
+        run: |
+          flutter pub get
+          flutter analyze
+          flutter test
+
   linux:
     runs-on: ubuntu-latest
     steps:
