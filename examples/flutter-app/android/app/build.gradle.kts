@@ -59,6 +59,7 @@ tasks.configureEach {
         dependsOn("extractDeepLinksDebug")
         dependsOn("outputDebugAppLinkSettings")
         dependsOn("processDebugManifest")
+        dependsOn("processDebugManifestForPackage")
         dependsOn("processDebugMainManifest")
         dependsOn(":integration_test:writeDebugAarMetadata")
     }
