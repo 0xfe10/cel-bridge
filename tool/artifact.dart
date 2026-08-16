@@ -267,7 +267,14 @@ Future<WasmBuild> buildWasmArtifact({
   final wasm = File(_join(rawDirectory.path, 'cel_bridge.wasm'));
   final result = await Process.run(
     'go',
-    ['build', '-trimpath', '-o', wasm.path, './cmd/cel-bridge-wasm'],
+    [
+      'build',
+      '-trimpath',
+      '-ldflags=-buildid=cel-bridge-v${packageVersion(root)}',
+      '-o',
+      wasm.path,
+      './cmd/cel-bridge-wasm',
+    ],
     workingDirectory: root.path,
     environment: {
       ...Platform.environment,
