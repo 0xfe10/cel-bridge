@@ -306,13 +306,21 @@ jobs:
             "repos/$GITHUB_REPOSITORY/commits/$RELEASE_TAG" \
             --jq .sha)"
           test "$tag_commit" = "$RELEASE_COMMIT"
-          existing_release_draft="$(gh release view \
+          set +e
+          release_lookup="$(gh release view \
             "$RELEASE_TAG" \
             --repo "$GITHUB_REPOSITORY" \
             --json isDraft \
-            --jq .isDraft 2>/dev/null || true)"
-          if [[ -n "$existing_release_draft" ]]; then
-            test "$existing_release_draft" = true
+            --jq .isDraft 2>&1)"
+          release_status=$?
+          set -e
+          if [[ "$release_status" -eq 0 ]]; then
+            test "$release_lookup" = true
+          elif [[ "$release_status" -eq 1 && "$release_lookup" == "release not found" ]]; then
+            :
+          else
+            printf '%s\n' "$release_lookup" >&2
+            exit "$release_status"
           fi
 
       - name: Create Draft Release
