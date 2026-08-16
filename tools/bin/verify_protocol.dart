@@ -71,15 +71,16 @@ Future<void> main(List<String> args) async {
 Directory _root(List<String> args) {
   final index = args.indexOf('--root');
   if (index != -1) {
-    if (index + 1 >= args.length)
+    if (index + 1 >= args.length) {
       throw ArgumentError('--root requires a value');
+    }
     return Directory(args[index + 1]).absolute;
   }
   return repositoryRoot();
 }
 
 Directory repositoryRoot() {
-  final candidate = File.fromUri(Platform.script).absolute.parent.parent;
+  final candidate = File.fromUri(Platform.script).absolute.parent.parent.parent;
   if (File('${candidate.path}/go.mod').existsSync()) return candidate;
   throw StateError(
     'pass --root <repository> when running outside the checkout',
