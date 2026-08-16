@@ -651,8 +651,9 @@ jobs:
           arch: x86_64
           profile: pixel_2
           force-avd-creation: true
-          emulator-options: -no-window -no-audio -no-boot-anim
+          emulator-options: -no-window -gpu swiftshader_indirect -no-audio -no-boot-anim
           disable-animations: true
+          emulator-boot-timeout: 1200
           script: >-
             set -eu &&
             cd "$GITHUB_WORKSPACE/build/release-android-example" &&
@@ -676,8 +677,9 @@ jobs:
           arch: x86_64
           profile: pixel_2
           force-avd-creation: true
-          emulator-options: -no-window -no-audio -no-boot-anim
+          emulator-options: -no-window -gpu swiftshader_indirect -no-audio -no-boot-anim
           disable-animations: true
+          emulator-boot-timeout: 1200
           script: >-
             set -eu &&
             cd "$GITHUB_WORKSPACE/build/release-android-example" &&
