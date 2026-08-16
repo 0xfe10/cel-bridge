@@ -597,21 +597,8 @@ jobs:
           force-avd-creation: true
           emulator-options: -no-window -no-audio -no-boot-anim
           disable-animations: true
-          script: |
-            set -eu
-            python3 -m http.server 8125 --directory build/release-download \
-              >build/release-download/http.log 2>&1 &
-            server_pid=$!
-            trap 'kill "$server_pid"' 0
-            for attempt in $(seq 1 20); do
-              if curl --fail --silent http://127.0.0.1:8125/ >/dev/null; then
-                break
-              fi
-              sleep 1
-            done
-            cd build/release-android-example
-            flutter pub get
-            flutter test integration_test/runtime_test.dart -d emulator-5554
+          script: >-
+            set -eu; python3 -m http.server 8125 --directory build/release-download >build/release-download/http.log 2>&1 & server_pid=$!; trap 'kill "$server_pid"' 0; for attempt in $(seq 1 20); do if curl --fail --silent http://127.0.0.1:8125/ >/dev/null; then break; fi; sleep 1; done; cd build/release-android-example; flutter pub get; flutter test integration_test/runtime_test.dart -d emulator-5554
 
   publish-check:
     needs: [version, release-consumption, release-platform-consumption]
