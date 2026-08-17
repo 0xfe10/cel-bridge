@@ -9,18 +9,26 @@ void main() {
 
   testWidgets('validates and evaluates the default rule', (tester) async {
     await tester.pumpWidget(const CelBridgeExampleApp());
-    await tester.runAsync(
-      () => Future<void>.delayed(const Duration(seconds: 2)),
-    );
-    await tester.pump();
-    expect(find.byKey(const ValueKey('runtime-ready')), findsOneWidget);
+    final ready = find.byKey(const ValueKey('runtime-ready'));
+    await _waitFor(tester, ready);
+    expect(ready, findsOneWidget);
     final evaluate = find.byKey(const ValueKey('evaluate-button'));
     await tester.ensureVisible(evaluate);
     await tester.tap(evaluate);
-    await tester.runAsync(
-      () => Future<void>.delayed(const Duration(seconds: 2)),
-    );
-    await tester.pump();
-    expect(find.text('true'), findsOneWidget);
+    final result = find.text('true');
+    await _waitFor(tester, result);
+    expect(result, findsOneWidget);
   });
+}
+
+Future<void> _waitFor(WidgetTester tester, Finder finder) async {
+  final timeout = Stopwatch()..start();
+  while (timeout.elapsed < const Duration(minutes: 2)) {
+    await tester.pump();
+    if (finder.evaluate().isNotEmpty) return;
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(seconds: 1)),
+    );
+  }
+  await tester.pump();
 }

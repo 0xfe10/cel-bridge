@@ -731,7 +731,7 @@ jobs:
                       'CFBundleInfoDictionaryVersion': '6.0',
                       'CFBundleName': 'CelBridgeRustSmoke',
                       'CFBundlePackageType': 'APPL',
-                      'CFBundleShortVersionString': '0.3.1',
+                      'CFBundleShortVersionString': '0.3.2',
                       'CFBundleVersion': '1',
                       'MinimumOSVersion': '13.0',
                   },

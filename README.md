@@ -5,7 +5,7 @@ cel-bridge provides cross-platform CEL evaluation through one Go
 SDKs share the same C ABI and JSON protocol; neither SDK reimplements CEL
 semantics.
 
-The current source version is `0.3.1`, and the wire `protocolVersion` is `1`.
+The current source version is `0.3.2`, and the wire `protocolVersion` is `1`.
 
 ## At a glance
 
@@ -31,7 +31,7 @@ The current source version is `0.3.1`, and the wire `protocolVersion` is `1`.
 | Dart / Flutter | Linux x86_64/AArch64, macOS x86_64/arm64, Windows x86_64, Android arm64-v8a/armeabi-v7a/x86_64, iOS device/simulator, Web |
 | Rust | Linux x86_64/AArch64, macOS x86_64/arm64, Windows x86_64, Android arm64-v8a/armeabi-v7a/x86_64, iOS device/simulator |
 
-Windows ARM64 and Rust Web/Wasm are not provided in `v0.3.1`. The Rust crate
+Windows ARM64 and Rust Web/Wasm are not provided in `v0.3.2`. The Rust crate
 uses `std`; `no_std` is not supported.
 
 ## Native runtime selection
@@ -98,7 +98,7 @@ dependencies:
   cel_bridge:
     git:
       url: https://github.com/0xfe10/cel-bridge.git
-      ref: v0.3.1
+      ref: v0.3.2
       path: sdk/dart
 ```
 
@@ -144,7 +144,7 @@ After crates.io publication:
 
 ```toml
 [dependencies]
-cel-bridge = "0.3.1"
+cel-bridge = "0.3.2"
 serde_json = "1.0"
 ```
 
@@ -152,7 +152,7 @@ Before crates.io publication, pin the Git dependency to the release tag:
 
 ```toml
 [dependencies]
-cel-bridge = { git = "https://github.com/0xfe10/cel-bridge.git", tag = "v0.3.1", package = "cel-bridge" }
+cel-bridge = { git = "https://github.com/0xfe10/cel-bridge.git", tag = "v0.3.2", package = "cel-bridge" }
 ```
 
 The default Cargo build downloads and verifies the target-specific runtime
