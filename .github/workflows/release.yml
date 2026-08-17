@@ -347,7 +347,7 @@ jobs:
     needs: [version, draft]
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
     steps:
       - name: Check out source
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -467,7 +467,7 @@ jobs:
             kind: ios
     runs-on: ${{ matrix.runner }}
     permissions:
-      contents: read
+      contents: write
     defaults:
       run:
         shell: bash
