@@ -1,6 +1,8 @@
 #[derive(Clone, Debug)]
 pub struct Target {
     pub name: &'static str,
+    pub artifact: &'static str,
+    pub archive_prefix: Option<&'static str>,
     pub goos: &'static str,
     pub goarch: &'static str,
     pub library: &'static str,
@@ -12,6 +14,8 @@ pub fn from_triple(triple: &str) -> Result<Target, String> {
     let target = match triple {
         "x86_64-unknown-linux-gnu" => Target {
             name: "linux-x86_64",
+            artifact: "linux-x86_64-static",
+            archive_prefix: None,
             goos: "linux",
             goarch: "amd64",
             library: "libcel_bridge.a",
@@ -20,6 +24,8 @@ pub fn from_triple(triple: &str) -> Result<Target, String> {
         },
         "aarch64-unknown-linux-gnu" => Target {
             name: "linux-aarch64",
+            artifact: "linux-aarch64-static",
+            archive_prefix: None,
             goos: "linux",
             goarch: "arm64",
             library: "libcel_bridge.a",
@@ -28,6 +34,8 @@ pub fn from_triple(triple: &str) -> Result<Target, String> {
         },
         "x86_64-apple-darwin" => Target {
             name: "macos-x86_64",
+            artifact: "macos-x86_64-static",
+            archive_prefix: None,
             goos: "darwin",
             goarch: "amd64",
             library: "libcel_bridge.a",
@@ -36,6 +44,8 @@ pub fn from_triple(triple: &str) -> Result<Target, String> {
         },
         "aarch64-apple-darwin" => Target {
             name: "macos-arm64",
+            artifact: "macos-arm64-static",
+            archive_prefix: None,
             goos: "darwin",
             goarch: "arm64",
             library: "libcel_bridge.a",
@@ -44,6 +54,8 @@ pub fn from_triple(triple: &str) -> Result<Target, String> {
         },
         "x86_64-pc-windows-msvc" => Target {
             name: "windows-x86_64",
+            artifact: "windows-x86_64",
+            archive_prefix: None,
             goos: "windows",
             goarch: "amd64",
             library: "cel_bridge.dll",
@@ -52,6 +64,8 @@ pub fn from_triple(triple: &str) -> Result<Target, String> {
         },
         "aarch64-linux-android" => Target {
             name: "android-arm64-v8a",
+            artifact: "android-arm64-v8a",
+            archive_prefix: None,
             goos: "android",
             goarch: "arm64",
             library: "libcel_bridge.so",
@@ -60,6 +74,8 @@ pub fn from_triple(triple: &str) -> Result<Target, String> {
         },
         "armv7-linux-androideabi" => Target {
             name: "android-armeabi-v7a",
+            artifact: "android-armeabi-v7a",
+            archive_prefix: None,
             goos: "android",
             goarch: "arm",
             library: "libcel_bridge.so",
@@ -68,6 +84,8 @@ pub fn from_triple(triple: &str) -> Result<Target, String> {
         },
         "x86_64-linux-android" => Target {
             name: "android-x86_64",
+            artifact: "android-x86_64",
+            archive_prefix: None,
             goos: "android",
             goarch: "amd64",
             library: "libcel_bridge.so",
@@ -76,6 +94,8 @@ pub fn from_triple(triple: &str) -> Result<Target, String> {
         },
         "aarch64-apple-ios" => Target {
             name: "ios-arm64",
+            artifact: "ios-xcframework",
+            archive_prefix: Some("libcel_bridge.xcframework/ios-arm64/"),
             goos: "ios",
             goarch: "arm64",
             library: "libcel_bridge.a",
@@ -84,6 +104,8 @@ pub fn from_triple(triple: &str) -> Result<Target, String> {
         },
         "aarch64-apple-ios-sim" => Target {
             name: "ios-arm64-simulator",
+            artifact: "ios-xcframework",
+            archive_prefix: Some("libcel_bridge.xcframework/ios-arm64_x86_64-simulator/"),
             goos: "ios",
             goarch: "arm64",
             library: "libcel_bridge.a",
@@ -92,6 +114,8 @@ pub fn from_triple(triple: &str) -> Result<Target, String> {
         },
         "x86_64-apple-ios" => Target {
             name: "ios-x86_64-simulator",
+            artifact: "ios-xcframework",
+            archive_prefix: Some("libcel_bridge.xcframework/ios-arm64_x86_64-simulator/"),
             goos: "ios",
             goarch: "amd64",
             library: "libcel_bridge.a",

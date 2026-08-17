@@ -62,20 +62,19 @@ pub fn from_release(target: &Target, out_dir: &Path) -> Result<PathBuf, String> 
     let manifest = get(&manifest_url, local_http)?;
     let manifest: serde_json::Value = serde_json::from_slice(&manifest)
         .map_err(|error| format!("invalid release manifest: {error}"))?;
-    if manifest["manifestVersion"] != 2
+    if manifest["manifestVersion"] != 3
         || manifest["runtimeVersion"] != version
         || manifest["protocolVersion"] != 1
     {
         return Err("release manifest version does not match this crate".to_string());
     }
-    let wanted = format!("rust-{}", target.name);
     let entries = manifest["artifacts"]
         .as_array()
         .ok_or_else(|| "release manifest artifacts is not an array".to_string())?;
     let entry = entries
         .iter()
-        .find(|entry| entry["target"] == wanted && entry["consumer"] == "rust")
-        .ok_or_else(|| format!("release manifest has no {wanted} entry"))?;
+        .find(|entry| entry["id"] == target.artifact)
+        .ok_or_else(|| format!("release manifest has no {} entry", target.artifact))?;
     let file = entry["file"]
         .as_str()
         .ok_or("release manifest file is not a string")?;
@@ -108,9 +107,15 @@ pub fn from_release(target: &Target, out_dir: &Path) -> Result<PathBuf, String> 
         return Err(format!("release artifact checksum mismatch: {actual}"));
     }
     let output = out_dir.join(target.library);
-    extract(file, &bytes, target.library, &output)?;
+    extract(file, &bytes, target.library, target.archive_prefix, &output)?;
     if let Some(import_library) = target.import_library {
-        extract(file, &bytes, import_library, &out_dir.join(import_library))?;
+        extract(
+            file,
+            &bytes,
+            import_library,
+            target.archive_prefix,
+            &out_dir.join(import_library),
+        )?;
     }
     Ok(output)
 }
@@ -145,6 +150,7 @@ fn extract(
     archive_name: &str,
     bytes: &[u8],
     library_name: &str,
+    required_prefix: Option<&str>,
     output: &Path,
 ) -> Result<(), String> {
     if archive_name.ends_with(".zip") {
@@ -156,10 +162,11 @@ fn extract(
                 .map_err(|error| format!("read zip entry: {error}"))?;
             let name = file.name().to_string();
             validate_entry(&name)?;
-            if Path::new(&name)
-                .file_name()
-                .and_then(|value| value.to_str())
-                == Some(library_name)
+            if required_prefix.is_none_or(|prefix| name.starts_with(prefix))
+                && Path::new(&name)
+                    .file_name()
+                    .and_then(|value| value.to_str())
+                    == Some(library_name)
             {
                 let mut content = Vec::new();
                 file.read_to_end(&mut content)
@@ -182,7 +189,9 @@ fn extract(
                 .to_path_buf();
             let name = path.to_string_lossy().into_owned();
             validate_entry(&name)?;
-            if path.file_name().and_then(|value| value.to_str()) == Some(library_name) {
+            if required_prefix.is_none_or(|prefix| name.starts_with(prefix))
+                && path.file_name().and_then(|value| value.to_str()) == Some(library_name)
+            {
                 let mut content = Vec::new();
                 entry
                     .read_to_end(&mut content)

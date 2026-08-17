@@ -1,7 +1,7 @@
 # cel-bridge Dart / Flutter Integration Guide
 
 This guide is for developers integrating `cel_bridge` into Dart, Flutter,
-desktop, Android, iOS, or Web applications. It targets the current `v0.2.0`
+desktop, Android, iOS, or Web applications. It targets the current `v0.3.0`
 API.
 
 `cel_bridge` wraps the Go CEL runtime in a Dart API:
@@ -24,8 +24,8 @@ API.
 | iOS Simulator | arm64, x86_64 | Static `libcel_bridge.a`, provided by the XCFramework | No |
 | Web | Browser Wasm | `cel_bridge.wasm`, `wasm_exec.js` | No |
 
-Windows ARM64 is not included in `v0.2.0`. Linux AArch64 is supported by the
-release artifact and must use the matching `linux-aarch64` library.
+Windows ARM64 is not included in `v0.3.0`. Linux AArch64 is supported by the
+release artifact and must use the matching `linux-aarch64-dynamic` library.
 
 ### Versions and toolchains
 
@@ -46,7 +46,7 @@ dependencies:
   cel_bridge:
     git:
       url: https://github.com/0xfe10/cel-bridge.git
-      ref: v0.2.0
+      ref: v0.3.0
       path: sdk/dart
 ```
 
@@ -462,13 +462,13 @@ To prepare the native cache for the current host, run this from the
 cd sdk/dart
 dart pub get
 CEL_BRIDGE_BUILD_FROM_SOURCE=1 dart run bin/prepare.dart \
-  --target linux-x86_64
+  --target linux-x86_64-dynamic
 ```
 
-Other available targets include `macos-arm64`, `macos-x86_64`,
-`windows-x86_64`, `android-arm64-v8a`, `android-armeabi-v7a`,
-`android-x86_64`, `ios-arm64`, and two iOS simulator targets. The target must
-match the platform being built.
+Other available targets include `macos-arm64-dynamic`,
+`macos-x86_64-dynamic`, `windows-x86_64`, `android-arm64-v8a`,
+`android-armeabi-v7a`, `android-x86_64`, `ios-arm64`, and two iOS simulator
+targets. The target must match the platform being built.
 
 ### 7.3 Use locally compiled assets
 
@@ -486,7 +486,7 @@ The directory can contain the library directly or organize it by target:
 
 ```text
 artifacts/
-└── linux-x86_64/
+└── linux-x86_64-dynamic/
     ├── libcel_bridge.so
     └── libcel_bridge.so.sha256
 ```
@@ -504,16 +504,16 @@ hooks:
   user_defines:
     cel_bridge:
       build_from_source: false
-      release_base_url: "https://artifacts.example.com/cel-bridge/v0.2.0"
+      release_base_url: "https://artifacts.example.com/cel-bridge/v0.3.0"
 ```
 
 The mirror must provide the manifest and every target archive for the current
 version, with the original filenames unchanged. For example:
 
 ```text
-cel-bridge-manifest-v0.2.0.json
-cel-bridge-linux-x86_64-v0.2.0.tar.gz
-cel-bridge-android-arm64-v0.2.0.tar.gz
+cel-bridge-manifest-v0.3.0.json
+cel-bridge-linux-x86_64-dynamic-v0.3.0.tar.gz
+cel-bridge-android-arm64-v8a-v0.3.0.tar.gz
 ...
 ```
 
@@ -644,14 +644,14 @@ Requirements and behavior:
   `CEL_BRIDGE_IOS_XCFRAMEWORK_PATH`;
 - Flutter builds run the pod script phase automatically;
 - the script phase downloads and verifies
-  `cel-bridge-ios-xcframework-v0.2.0.zip` from the Release;
+  `cel-bridge-ios-xcframework-v0.3.0.zip` from the Release;
 - runtime CEL calls never download executable code;
 - `CEL_BRIDGE_IOS_XCFRAMEWORK_PATH` can point to a local XCFramework;
 - the following environment variables can point to an internal mirror:
 
 ```bash
-export CEL_BRIDGE_IOS_XCFRAMEWORK_URL="https://artifacts.example.com/cel-bridge/v0.2.0/cel-bridge-ios-xcframework-v0.2.0.zip"
-export CEL_BRIDGE_IOS_XCFRAMEWORK_CHECKSUM_URL="https://artifacts.example.com/cel-bridge/v0.2.0/checksums.txt"
+export CEL_BRIDGE_IOS_XCFRAMEWORK_URL="https://artifacts.example.com/cel-bridge/v0.3.0/cel-bridge-ios-xcframework-v0.3.0.zip"
+export CEL_BRIDGE_IOS_XCFRAMEWORK_CHECKSUM_URL="https://artifacts.example.com/cel-bridge/v0.3.0/checksums.txt"
 
 flutter build ios --simulator --no-codesign
 ```

@@ -1,4 +1,4 @@
-const packageVersion = '0.2.0';
+const packageVersion = '0.3.0';
 const wireProtocolVersion = 1;
 const _defaultWasmIntegrity =
     'sha256-cczoqE7HFD/uHuhCWlVLQVZkIWSDxdFc9uXll3xJ3pw=';
@@ -8,9 +8,9 @@ const _defaultWasmExecIntegrity =
 final class CelRuntimeOptions {
   const CelRuntimeOptions({
     this.wasmUrl =
-        'https://github.com/0xfe10/cel-bridge/releases/download/v0.2.0/cel_bridge.wasm',
+        'https://github.com/0xfe10/cel-bridge/releases/download/v0.3.0/cel_bridge.wasm',
     this.wasmExecUrl =
-        'https://github.com/0xfe10/cel-bridge/releases/download/v0.2.0/wasm_exec.js',
+        'https://github.com/0xfe10/cel-bridge/releases/download/v0.3.0/wasm_exec.js',
     this.wasmIntegrity = _defaultWasmIntegrity,
     this.wasmExecIntegrity = _defaultWasmExecIntegrity,
   });

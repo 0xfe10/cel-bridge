@@ -10,7 +10,7 @@ After the crate is published, use the release version:
 
 ```toml
 [dependencies]
-cel-bridge = "0.2.0"
+cel-bridge = "0.3.0"
 serde_json = "1.0"
 ```
 
@@ -18,7 +18,7 @@ Until then, use the release tag and repository path:
 
 ```toml
 [dependencies]
-cel-bridge = { git = "https://github.com/0xfe10/cel-bridge.git", tag = "v0.2.0", package = "cel-bridge" }
+cel-bridge = { git = "https://github.com/0xfe10/cel-bridge.git", tag = "v0.3.0", package = "cel-bridge" }
 serde_json = "1.0"
 ```
 
@@ -94,15 +94,15 @@ configuration. Web applications should use the Dart SDK and Go Wasm backend.
 
 ### Fixed Release artifacts
 
-The default build downloads the exact `v0.2.0` artifact for Cargo's target,
-then verifies its size and SHA-256 against the release manifest. Consumers do
-not need a Go installation in this mode.
+The default build downloads the exact `v0.3.0` runtime artifact for Cargo's
+target, then verifies its size and SHA-256 against the release manifest.
+Consumers do not need a Go installation in this mode.
 
 The default GitHub layout is:
 
 ```text
 https://github.com/0xfe10/cel-bridge/releases/download/
-  v0.2.0/cel-bridge-manifest-v0.2.0.json
+  v0.3.0/cel-bridge-manifest-v0.3.0.json
 ```
 
 For an internal mirror, set the release-download root, not the version
@@ -113,7 +113,7 @@ export CEL_BRIDGE_RELEASE_BASE_URL=https://artifacts.example.com/cel-bridge/down
 cargo build
 ```
 
-The build script appends `/v0.2.0/<file>`. HTTPS is required. HTTP is accepted
+The build script appends `/v0.3.0/<file>`. HTTPS is required. HTTP is accepted
 only when `CEL_BRIDGE_ALLOW_INSECURE_RELEASE_BASE=1` is explicitly set for a
 localhost test fixture.
 
@@ -143,7 +143,7 @@ to select the correct SDK, clang, sysroot, and target triple.
 Use an extracted library when testing a locally built release-shaped artifact:
 
 ```bash
-CEL_BRIDGE_ARTIFACT_DIR=/absolute/path/to/rust-linux-x86_64 \
+CEL_BRIDGE_ARTIFACT_DIR=/absolute/path/to/linux-x86_64-static \
   cargo run --manifest-path examples/rust-cli/Cargo.toml
 ```
 
@@ -163,18 +163,19 @@ app/src/main/jniLibs/armeabi-v7a/libcel_bridge.so
 app/src/main/jniLibs/x86_64/libcel_bridge.so
 ```
 
-Use the `rust-android-*-v0.2.0.tar.gz` release artifacts or build the matching
-Go shared library from source. Do not put a Linux or desktop library in an
+Use the shared `cel-bridge-android-*-v0.3.0.tar.gz` runtime artifacts or build
+the matching Go shared library from source. Dart and Rust use the same Android
+`.so`. Do not put a Linux or desktop library in an
 Android ABI directory. The repository's Rust smoke harness is in
 [`sdk/rust/tests-platform/android`](../sdk/rust/tests-platform/android).
 
 ## iOS linking
 
 iOS uses a Go static archive because Go does not provide the dynamic code-asset
-shape required by the Flutter iOS hook. Rust iOS consumers should build the
-matching target and link the resulting Rust static library and Go archive into
-the Xcode target. The release also provides
-`cel-bridge-ios-xcframework-v0.2.0.zip` for Flutter's CocoaPods fallback.
+shape required by the Flutter iOS hook. The shared
+`cel-bridge-ios-xcframework-v0.3.0.zip` contains device and universal simulator
+slices. Rust selects the matching slice from that same XCFramework; Flutter
+uses it through CocoaPods.
 
 The Rust iOS smoke harness is in
 [`sdk/rust/tests-platform/ios`](../sdk/rust/tests-platform/ios). Device and
@@ -186,7 +187,7 @@ archive into a device target.
 Windows uses `cel_bridge.dll` plus the MSVC-compatible `cel_bridge.lib` import
 library. The build script extracts both files; keep the DLL beside the final
 executable or in a directory on the process DLL search path. The release
-artifact is `cel-bridge-rust-windows-x86_64-v0.2.0.zip`. Both files must match
+artifact is `cel-bridge-windows-x86_64-v0.3.0.zip`. Both files must match
 the executable's architecture and the Rust target's linker/toolchain.
 
 ## Verify an integration
@@ -209,5 +210,5 @@ CEL_BRIDGE_ALLOW_INSECURE_RELEASE_BASE=1 \
 cargo run --manifest-path tools/fixtures/rust-release-consumer/Cargo.toml
 ```
 
-The fixture checks a real CEL evaluation through the downloaded Rust artifact;
-it does not use the source build fallback.
+The fixture checks a real CEL evaluation through the downloaded Go runtime
+artifact; it does not use the source build fallback.
