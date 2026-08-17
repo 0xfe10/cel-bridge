@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.1
+
+- Published the shared runtime artifact model after cross-SDK release testing.
+
 ## 0.3.0
 
 - Replaced language-specific native archives with shared runtime artifacts.

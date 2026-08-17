@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.1
+
+- Thin universal iOS simulator archives to Cargo's target architecture.
+
 ## 0.3.0
 
 - Added the Rust SDK surface and native runtime linkage.
