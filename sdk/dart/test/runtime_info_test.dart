@@ -5,7 +5,7 @@ import 'package:test/test.dart';
 void main() {
   test('accepts matching runtime and protocol versions', () {
     final info = decodeRuntimeInfo(
-      '{"protocolVersion":1,"runtimeVersion":"0.3.1",'
+      '{"protocolVersion":1,"runtimeVersion":"0.3.2",'
       '"celGoVersion":"v0.31.0","features":{"costLimit":true}}',
     );
     expect(info.runtimeVersion, packageVersion);
@@ -32,7 +32,7 @@ void main() {
   test('rejects non-boolean feature flags', () {
     expect(
       () => decodeRuntimeInfo(
-        '{"protocolVersion":1,"runtimeVersion":"0.3.1",'
+        '{"protocolVersion":1,"runtimeVersion":"0.3.2",'
         '"celGoVersion":"v0.31.0","features":{"costLimit":"true"}}',
       ),
       throwsA(

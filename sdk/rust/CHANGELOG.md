@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.2
+
+- Republished the shared runtime artifacts with slow-emulator release validation.
+
 ## 0.3.1
 
 - Thin universal iOS simulator archives to Cargo's target architecture.

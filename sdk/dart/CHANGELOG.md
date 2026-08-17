@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.2
+
+- Republished the shared runtime artifacts with slow-emulator release validation.
+
 ## 0.3.1
 
 - Published the shared runtime artifact model after cross-SDK release testing.

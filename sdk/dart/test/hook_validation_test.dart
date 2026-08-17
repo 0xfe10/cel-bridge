@@ -6,27 +6,27 @@ void main() {
   test('accepts only the expected release artifact filename', () {
     expect(
       validateReleaseArtifactFile(
-        file: 'cel-bridge-linux-x86_64-dynamic-v0.3.1.tar.gz',
+        file: 'cel-bridge-linux-x86_64-dynamic-v0.3.2.tar.gz',
         artifactId: 'linux-x86_64-dynamic',
-        version: '0.3.1',
+        version: '0.3.2',
         format: 'tar.gz',
       ),
-      'cel-bridge-linux-x86_64-dynamic-v0.3.1.tar.gz',
+      'cel-bridge-linux-x86_64-dynamic-v0.3.2.tar.gz',
     );
   });
 
   test('rejects path traversal and absolute artifact filenames', () {
     for (final file in [
       '../pubspec.yaml',
-      '/tmp/cel-bridge-linux-x86_64-dynamic-v0.3.1.tar.gz',
+      '/tmp/cel-bridge-linux-x86_64-dynamic-v0.3.2.tar.gz',
       r'..\pubspec.yaml',
-      'cel-bridge-linux-x86_64-dynamic-v0.3.1.tar.gz/../../pubspec.yaml',
+      'cel-bridge-linux-x86_64-dynamic-v0.3.2.tar.gz/../../pubspec.yaml',
     ]) {
       expect(
         () => validateReleaseArtifactFile(
           file: file,
           artifactId: 'linux-x86_64-dynamic',
-          version: '0.3.1',
+          version: '0.3.2',
           format: 'tar.gz',
         ),
         throwsA(isA<StateError>()),

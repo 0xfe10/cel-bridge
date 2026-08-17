@@ -8,7 +8,7 @@ import 'package:code_assets/code_assets.dart';
 import 'package:crypto/crypto.dart';
 import 'package:hooks/hooks.dart';
 
-const _runtimeVersion = '0.3.1';
+const _runtimeVersion = '0.3.2';
 const _protocolVersion = 1;
 const _defaultReleaseBase =
     'https://github.com/0xfe10/cel-bridge/releases/download/v$_runtimeVersion';
