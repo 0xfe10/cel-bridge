@@ -10,16 +10,35 @@ void main() {
     expect(
       artifactTargets.map((target) => target.name),
       containsAll(<String>[
-        'linux-x86_64',
-        'linux-aarch64',
+        'linux-x86_64-dynamic',
+        'linux-x86_64-static',
+        'linux-aarch64-dynamic',
+        'linux-aarch64-static',
         'android-arm64-v8a',
         'ios-arm64',
         'windows-x86_64',
       ]),
     );
     expect(
-      rustArtifactTargets.map((target) => target.name),
-      contains('rust-linux-x86_64'),
+      artifactTargets.map((target) => target.name),
+      isNot(contains('rust-linux-x86_64')),
+    );
+  });
+
+  test('publishes runtime artifacts without language-specific targets', () {
+    expect(
+      releaseArtifactSpecs.map((artifact) => artifact.id),
+      containsAll(<String>[
+        'android-arm64-v8a',
+        'ios-xcframework',
+        'linux-x86_64-dynamic',
+        'linux-x86_64-static',
+        'windows-x86_64',
+      ]),
+    );
+    expect(
+      releaseArtifactSpecs.any((artifact) => artifact.id.startsWith('rust-')),
+      isFalse,
     );
   });
 
@@ -32,8 +51,8 @@ void main() {
 
   test('uses the package-local artifact cache consumed by the hook', () {
     expect(
-      artifactCacheDirectory(Uri.file('/packages/cel_bridge/'), '0.2.0'),
-      Uri.file('/packages/cel_bridge/.dart_tool/cel_bridge/artifacts/0.2.0/'),
+      artifactCacheDirectory(Uri.file('/packages/cel_bridge/'), '0.3.0'),
+      Uri.file('/packages/cel_bridge/.dart_tool/cel_bridge/artifacts/0.3.0/'),
     );
   });
 

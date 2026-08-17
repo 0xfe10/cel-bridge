@@ -6,7 +6,7 @@ Future<void> main(List<String> args) async {
   if (hasOption(args, 'help')) {
     stdout.writeln(
       'usage: dart run bin/build_artifact.dart '
-      '--target <target|wasm> [--output <directory>]',
+      '--target <target|wasm> [--output <directory>] [--no-archive]',
     );
     return;
   }
@@ -22,12 +22,14 @@ Future<void> main(List<String> args) async {
       return;
     }
     final target = ArtifactTarget.parse(targetName);
+    final archive = !hasOption(args, 'no-archive');
     final build = await buildNativeArtifact(
       root: root,
       target: target,
       output: output,
+      archive: archive,
     );
-    stdout.writeln(build.archive!.path);
+    stdout.writeln(build.archive?.path ?? build.rawFile.path);
   } catch (error) {
     stderr.writeln('build_artifact: $error');
     exitCode = 1;

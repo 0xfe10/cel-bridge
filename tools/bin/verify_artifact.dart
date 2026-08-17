@@ -7,7 +7,7 @@ Future<void> main(List<String> args) async {
   if (hasOption(args, 'help')) {
     stdout.writeln(
       'usage: dart run bin/verify_artifact.dart '
-      '--manifest <file> [--input <directory>]',
+      '--manifest <file> [--input <directory>] [--complete]',
     );
     return;
   }
@@ -17,7 +17,7 @@ Future<void> main(List<String> args) async {
     final manifestFile = File(manifestPath);
     final value = jsonDecode(await manifestFile.readAsString());
     if (value is! Map) throw StateError('manifest must be a JSON object');
-    if (value['manifestVersion'] != 2 ||
+    if (value['manifestVersion'] != 3 ||
         value['protocolVersion'] != protocolVersion) {
       throw StateError('manifest protocol version is unsupported');
     }
@@ -38,42 +38,39 @@ Future<void> main(List<String> args) async {
     final seen = <String>{};
     for (final item in artifacts) {
       if (item is! Map ||
-          item['target'] is! String ||
-          item['consumer'] is! String ||
+          item['id'] is! String ||
           item['os'] is! String ||
           item['architecture'] is! String ||
           item['linkage'] is! String ||
+          item['format'] is! String ||
+          item['libraries'] is! List ||
           item['file'] is! String ||
           item['sha256'] is! String ||
           item['size'] is! int) {
         throw StateError('manifest contains an invalid artifact entry');
       }
-      final target = item['target'] as String;
-      final consumer = item['consumer'] as String;
-      final linkage = item['linkage'] as String;
-      if (consumer != 'dart' && consumer != 'rust') {
-        throw StateError('manifest contains an unsupported consumer');
-      }
-      if (linkage != 'dynamic' && linkage != 'static' && linkage != 'wasm') {
-        throw StateError('manifest contains an unsupported linkage');
-      }
-      if (consumer == 'rust' && !target.startsWith('rust-')) {
-        throw StateError('Rust artifact target must start with rust-');
-      }
-      if (consumer == 'dart' && target.startsWith('rust-')) {
-        throw StateError('Dart artifact target must not start with rust-');
+      final id = item['id'] as String;
+      final spec = releaseArtifactSpecs
+          .where((candidate) => candidate.id == id)
+          .firstOrNull;
+      if (spec == null) throw StateError('manifest contains unsupported $id');
+      final libraries = item['libraries'] as List;
+      if (item['os'] != spec.os ||
+          item['architecture'] != spec.architecture ||
+          item['linkage'] != spec.linkage ||
+          item['format'] != spec.format ||
+          libraries.length != spec.libraries.length ||
+          !libraries.every((library) => spec.libraries.contains(library))) {
+        throw StateError('manifest metadata does not match $id');
       }
       final name = item['file'] as String;
       if (name.isEmpty ||
           name != File(name).uri.pathSegments.last ||
-          !RegExp(
-            '^cel-bridge-[^/]+-v${RegExp.escape(version)}\\.(tar\\.gz|zip)\$',
-          ).hasMatch(name)) {
+          name != spec.fileName(version)) {
         throw StateError('manifest contains an unsafe artifact filename');
       }
-      final key = '$consumer:$target';
-      if (!seen.add(key)) {
-        throw StateError('manifest contains duplicate artifact $key');
+      if (!seen.add(id)) {
+        throw StateError('manifest contains duplicate artifact $id');
       }
       final file = File('${root.path}${Platform.pathSeparator}$name');
       if (!file.existsSync()) throw StateError('missing artifact ${file.path}');
@@ -83,6 +80,17 @@ Future<void> main(List<String> args) async {
       if (!RegExp(r'^[0-9a-f]{64}$').hasMatch(item['sha256'] as String) ||
           await sha256File(file) != item['sha256']) {
         throw StateError('artifact SHA-256 mismatch for ${file.path}');
+      }
+    }
+    if (hasOption(args, 'complete')) {
+      final missing = releaseArtifactSpecs
+          .map((artifact) => artifact.id)
+          .where((id) => !seen.contains(id))
+          .toList();
+      if (missing.isNotEmpty) {
+        throw StateError(
+          'manifest is missing release artifacts: ${missing.join(', ')}',
+        );
       }
     }
     stdout.writeln('verified ${artifacts.length} artifact(s)');

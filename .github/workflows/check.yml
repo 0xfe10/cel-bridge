@@ -230,10 +230,15 @@ jobs:
         run: |
           dart pub get
           dart run bin/build_artifact.dart \
-            --target linux-x86_64 --output ../build/artifacts
+            --target linux-x86_64-dynamic --output ../build/artifacts
           CC=aarch64-linux-gnu-gcc \
             dart run bin/build_artifact.dart \
-              --target linux-aarch64 --output ../build/artifacts
+              --target linux-aarch64-dynamic --output ../build/artifacts
+          dart run bin/build_artifact.dart \
+            --target linux-x86_64-static --output ../build/artifacts
+          CC=aarch64-linux-gnu-gcc \
+            dart run bin/build_artifact.dart \
+              --target linux-aarch64-static --output ../build/artifacts
 
       - name: Compile Linux Rust consumers
         if: matrix.name == 'linux'
@@ -280,9 +285,6 @@ jobs:
             CC="$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/$compiler" \
               dart run bin/build_artifact.dart \
                 --target "$target" --output ../build/artifacts
-            CC="$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/$compiler" \
-              dart run bin/build_artifact.dart \
-                --target "rust-$target" --output ../build/artifacts
           done
 
       - name: Compile Android Rust consumers
@@ -381,11 +383,13 @@ jobs:
         working-directory: tools
         run: |
           dart pub get
-          for target in macos-arm64 macos-x86_64 ios-arm64 ios-arm64-simulator ios-x86_64-simulator; do
+          for target in macos-arm64-dynamic macos-x86_64-dynamic macos-arm64-static macos-x86_64-static; do
             dart run bin/build_artifact.dart \
               --target "$target" --output ../build/artifacts
+          done
+          for target in ios-arm64 ios-arm64-simulator ios-x86_64-simulator; do
             dart run bin/build_artifact.dart \
-              --target "rust-$target" --output ../build/artifacts
+              --target "$target" --output ../build/artifacts --no-archive
           done
           mkdir -p ../build/artifacts/ios-simulator
           lipo -create \
@@ -458,8 +462,6 @@ jobs:
           dart pub get
           dart run bin/build_artifact.dart \
             --target windows-x86_64 --output ../build/artifacts
-          dart run bin/build_artifact.dart \
-            --target rust-windows-x86_64 --output ../build/artifacts
 
       - name: Compile Windows consumers
         if: matrix.name == 'windows'
@@ -530,4 +532,4 @@ jobs:
           cd tools
           dart run bin/web_smoke_runner.dart \
             http://127.0.0.1:8124/ | tee ../build/web-smoke/result.txt
-          grep -Fq '0.2.0|true|true' ../build/web-smoke/result.txt
+          grep -Fq '0.3.0|true|true' ../build/web-smoke/result.txt

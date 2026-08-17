@@ -5,7 +5,7 @@ cel-bridge provides cross-platform CEL evaluation through one Go
 SDKs share the same C ABI and JSON protocol; neither SDK reimplements CEL
 semantics.
 
-The current source version is `0.2.0`, and the wire `protocolVersion` is `1`.
+The current source version is `0.3.0`, and the wire `protocolVersion` is `1`.
 
 ## At a glance
 
@@ -20,6 +20,7 @@ The current source version is `0.2.0`, and the wire `protocolVersion` is `1`.
 
 - [Dart and Flutter integration](docs/dart.md)
 - [Rust integration](docs/rust.md)
+- [v0.3.0 artifact migration guide](docs/migration-0.3.md)
 - [v0.2.0 migration guide](docs/migration-0.2.md)
 - [Protocol contract](protocol/README.md)
 
@@ -30,7 +31,7 @@ The current source version is `0.2.0`, and the wire `protocolVersion` is `1`.
 | Dart / Flutter | Linux x86_64/AArch64, macOS x86_64/arm64, Windows x86_64, Android arm64-v8a/armeabi-v7a/x86_64, iOS device/simulator, Web |
 | Rust | Linux x86_64/AArch64, macOS x86_64/arm64, Windows x86_64, Android arm64-v8a/armeabi-v7a/x86_64, iOS device/simulator |
 
-Windows ARM64 and Rust Web/Wasm are not provided in `v0.2.0`. The Rust crate
+Windows ARM64 and Rust Web/Wasm are not provided in `v0.3.0`. The Rust crate
 uses `std`; `no_std` is not supported.
 
 ## Native runtime selection
@@ -62,7 +63,7 @@ compilation is invoked explicitly rather than through the automatic hook:
 cd sdk/dart
 dart pub get
 CEL_BRIDGE_BUILD_FROM_SOURCE=1 dart run bin/prepare.dart \
-  --target linux-x86_64
+  --target linux-x86_64-dynamic
 ```
 
 This command prepares the package-local native cache. It does not make
@@ -90,15 +91,14 @@ for mirror and checksum variables.
 
 ### Installation
 
-Before pub.dev publication, depend on the Git package and pin a reviewed commit.
-The example below uses the merge commit for the `0.2.0` source tree:
+Before pub.dev publication, depend on the Git package and pin the release tag:
 
 ```yaml
 dependencies:
   cel_bridge:
     git:
       url: https://github.com/0xfe10/cel-bridge.git
-      ref: 8407614d92cb0e1382332d765b4321e8b975993d
+      ref: v0.3.0
       path: sdk/dart
 ```
 
@@ -144,16 +144,15 @@ After crates.io publication:
 
 ```toml
 [dependencies]
-cel-bridge = "0.2.0"
+cel-bridge = "0.3.0"
 serde_json = "1.0"
 ```
 
-Before crates.io publication, pin the Git dependency to the same reviewed
-commit:
+Before crates.io publication, pin the Git dependency to the release tag:
 
 ```toml
 [dependencies]
-cel-bridge = { git = "https://github.com/0xfe10/cel-bridge.git", rev = "8407614d92cb0e1382332d765b4321e8b975993d", package = "cel-bridge" }
+cel-bridge = { git = "https://github.com/0xfe10/cel-bridge.git", tag = "v0.3.0", package = "cel-bridge" }
 ```
 
 The default Cargo build downloads and verifies the target-specific runtime
@@ -194,10 +193,12 @@ CEL_BRIDGE_BUILD_FROM_SOURCE=1 \
 
 ## Release integrity
 
-Each GitHub Release contains versioned Dart and Rust native archives, the Go
-Wasm bundle, a restricted runtime source archive, `checksums.txt`, and
-`cel-bridge-manifest-v<version>.json`. Manifest entries identify the consumer,
-OS, architecture, linkage, SHA-256 digest, and byte size.
+Each GitHub Release contains Go-built runtime artifacts selected by platform,
+architecture, and linkage, plus the Go Wasm bundle, a restricted runtime source
+archive, `checksums.txt`, and `cel-bridge-manifest-v<version>.json`. Dart, Rust,
+and other language bindings consume the same compatible runtime artifact.
+Manifest entries identify the artifact ID, OS, architecture, linkage, archive
+format, libraries, SHA-256 digest, and byte size.
 
 The Release workflow creates a Draft Release, downloads every artifact again,
 verifies checksums, and runs Dart, Rust, Web, Android, and iOS consumers before

@@ -8,7 +8,7 @@ import 'package:code_assets/code_assets.dart';
 import 'package:crypto/crypto.dart';
 import 'package:hooks/hooks.dart';
 
-const _runtimeVersion = '0.2.0';
+const _runtimeVersion = '0.3.0';
 const _protocolVersion = 1;
 const _defaultReleaseBase =
     'https://github.com/0xfe10/cel-bridge/releases/download/v$_runtimeVersion';
@@ -91,7 +91,7 @@ _Target _target(
   required bool staticLinking,
 }) {
   if (os == OS.windows && architecture.name == 'arm64') {
-    throw UnsupportedError('arm64 Windows artifacts are not included in v0.2');
+    throw UnsupportedError('arm64 Windows artifacts are not included in v0.3');
   }
   final arch = switch (architecture.name) {
     'arm' => 'arm',
@@ -111,11 +111,18 @@ _Target _target(
       'unsupported operating system $value',
     ),
   };
+  final name = _targetName(os, architecture, iosSimulator: iosSimulator);
   return _Target(
     os: os,
     goos: goos,
     goarch: arch,
-    name: _targetName(os, architecture, iosSimulator: iosSimulator),
+    name: name,
+    artifactId: os == OS.iOS ? 'ios-xcframework' : name,
+    archivePrefix: os == OS.iOS
+        ? iosSimulator
+              ? 'libcel_bridge.xcframework/ios-arm64_x86_64-simulator/'
+              : 'libcel_bridge.xcframework/ios-arm64/'
+        : null,
     staticLinking: staticLinking,
     iosSimulator: iosSimulator,
   );
@@ -140,9 +147,9 @@ String _targetName(
         ? 'x86_64'
         : architecture.name == 'arm64'
         ? 'aarch64'
-        : architecture.name}',
+        : architecture.name}-dynamic',
   OS.macOS =>
-    'macos-${architecture.name == 'x64' ? 'x86_64' : architecture.name}',
+    'macos-${architecture.name == 'x64' ? 'x86_64' : architecture.name}-dynamic',
   OS.windows =>
     'windows-${architecture.name == 'x64' ? 'x86_64' : architecture.name}',
   final value => '${value.name}-${architecture.name}',
@@ -206,7 +213,7 @@ Future<void> _downloadArtifact(
     }
   }
   final manifest = await _getJson(manifestUri, allowInsecure);
-  if (manifest['manifestVersion'] != 2 ||
+  if (manifest['manifestVersion'] != 3 ||
       manifest['runtimeVersion'] != _runtimeVersion ||
       manifest['protocolVersion'] != _protocolVersion) {
     throw StateError(
@@ -219,21 +226,20 @@ Future<void> _downloadArtifact(
   }
   Map<String, Object?>? artifact;
   for (final item in artifacts) {
-    if (item is Map &&
-        item['target'] == target.name &&
-        (item['consumer'] == null || item['consumer'] == 'dart')) {
+    if (item is Map && item['id'] == target.artifactId) {
       artifact = item.map((key, value) => MapEntry(key.toString(), value));
       break;
     }
   }
   if (artifact == null) {
-    throw StateError('release has no native artifact for ${target.name}');
+    throw StateError('release has no native artifact for ${target.artifactId}');
   }
+  final format = _requiredString(artifact['format'], 'artifact.format');
   final file = validateReleaseArtifactFile(
     file: _requiredString(artifact['file'], 'artifact.file'),
-    target: target.name,
+    artifactId: target.artifactId,
     version: _runtimeVersion,
-    goos: target.goos,
+    format: format,
   );
   final expectedHash = _requiredString(artifact['sha256'], 'artifact.sha256');
   final expectedSize = artifact['size'];
@@ -249,7 +255,12 @@ Future<void> _downloadArtifact(
     throw StateError('artifact SHA-256 mismatch for $archiveUri');
   }
   await archiveFile.writeAsBytes(bytes, flush: true);
-  final library = _extractLibrary(bytes, file, libraryName);
+  final library = _extractLibrary(
+    bytes,
+    file,
+    libraryName,
+    requiredPrefix: target.archivePrefix,
+  );
   await File.fromUri(assetPath).writeAsBytes(library, flush: true);
 }
 
@@ -506,8 +517,9 @@ Future<Uint8List> _download(Uri uri, bool allowInsecure) async {
 Uint8List _extractLibrary(
   List<int> bytes,
   String archiveName,
-  String libraryName,
-) {
+  String libraryName, {
+  String? requiredPrefix,
+}) {
   final archive = archiveName.endsWith('.zip')
       ? ZipDecoder().decodeBytes(bytes)
       : TarDecoder().decodeBytes(GZipDecoder().decodeBytes(bytes));
@@ -518,7 +530,11 @@ Uint8List _extractLibrary(
         normalized.startsWith('/')) {
       throw StateError('archive contains an unsafe path: ${file.name}');
     }
-    if (!file.isFile || segments.last != libraryName) continue;
+    if (!file.isFile ||
+        segments.last != libraryName ||
+        (requiredPrefix != null && !normalized.startsWith(requiredPrefix))) {
+      continue;
+    }
     final content = file.readBytes();
     if (content == null) {
       throw StateError('archive entry has no content: ${file.name}');
@@ -535,12 +551,14 @@ String _requiredString(Object? value, String name) {
 
 String validateReleaseArtifactFile({
   required String file,
-  required String target,
+  required String artifactId,
   required String version,
-  required String goos,
+  required String format,
 }) {
-  final extension = goos == 'windows' ? 'zip' : 'tar.gz';
-  final expected = 'cel-bridge-$target-v$version.$extension';
+  if (format != 'zip' && format != 'tar.gz') {
+    throw StateError('artifact.format is unsupported: $format');
+  }
+  final expected = 'cel-bridge-$artifactId-v$version.$format';
   if (file != expected) {
     throw StateError('artifact.file must be $expected');
   }
@@ -553,6 +571,8 @@ final class _Target {
     required this.goos,
     required this.goarch,
     required this.name,
+    required this.artifactId,
+    required this.archivePrefix,
     required this.staticLinking,
     required this.iosSimulator,
   });
@@ -561,6 +581,8 @@ final class _Target {
   final String goos;
   final String goarch;
   final String name;
+  final String artifactId;
+  final String? archivePrefix;
   final bool staticLinking;
   final bool iosSimulator;
 }

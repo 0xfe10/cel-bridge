@@ -150,23 +150,23 @@ jobs:
           test -n "$ndk"
           echo "ANDROID_NDK_ROOT=$ndk" >> "$GITHUB_ENV"
 
-      - name: Build Linux Dart and Rust artifacts
+      - name: Build Linux runtime artifacts
         if: matrix.kind == 'linux'
         working-directory: tools
         run: |
           dart pub get
           dart run bin/build_artifact.dart \
-            --target linux-x86_64 --output ../build/artifacts
+            --target linux-x86_64-dynamic --output ../build/artifacts
           CC=aarch64-linux-gnu-gcc \
             dart run bin/build_artifact.dart \
-              --target linux-aarch64 --output ../build/artifacts
+              --target linux-aarch64-dynamic --output ../build/artifacts
           dart run bin/build_artifact.dart \
-            --target rust-linux-x86_64 --output ../build/artifacts
+            --target linux-x86_64-static --output ../build/artifacts
           CC=aarch64-linux-gnu-gcc \
             dart run bin/build_artifact.dart \
-              --target rust-linux-aarch64 --output ../build/artifacts
+              --target linux-aarch64-static --output ../build/artifacts
 
-      - name: Build Android Dart and Rust artifacts
+      - name: Build Android runtime artifacts
         if: matrix.kind == 'android'
         working-directory: tools
         run: |
@@ -180,20 +180,20 @@ jobs:
             cc="$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/$compiler"
             CC="$cc" dart run bin/build_artifact.dart \
               --target "$target" --output ../build/artifacts
-            CC="$cc" dart run bin/build_artifact.dart \
-              --target "rust-$target" --output ../build/artifacts
           done
 
-      - name: Build Apple Dart and Rust artifacts
+      - name: Build Apple runtime artifacts
         if: matrix.kind == 'apple'
         working-directory: tools
         run: |
           dart pub get
-          for target in macos-arm64 macos-x86_64 ios-arm64 ios-arm64-simulator ios-x86_64-simulator; do
+          for target in macos-arm64-dynamic macos-x86_64-dynamic macos-arm64-static macos-x86_64-static; do
             dart run bin/build_artifact.dart \
               --target "$target" --output ../build/artifacts
+          done
+          for target in ios-arm64 ios-arm64-simulator ios-x86_64-simulator; do
             dart run bin/build_artifact.dart \
-              --target "rust-$target" --output ../build/artifacts
+              --target "$target" --output ../build/artifacts --no-archive
           done
           mkdir -p ../build/artifacts/ios-simulator
           lipo -create \
@@ -209,29 +209,16 @@ jobs:
           ditto -c -k --sequesterRsrc --keepParent \
             ../build/artifacts/libcel_bridge.xcframework \
             ../build/artifacts/cel-bridge-ios-xcframework-v$(cat ../VERSION).zip
-          ditto -c -k --sequesterRsrc --keepParent \
-            ../build/artifacts/libcel_bridge.xcframework \
-            ../build/artifacts/cel-bridge-rust-ios-xcframework-v$(cat ../VERSION).zip
-          mkdir -p ../build/artifacts/macos-universal
-          lipo -create \
-            ../build/artifacts/macos-arm64/libcel_bridge.dylib \
-            ../build/artifacts/macos-x86_64/libcel_bridge.dylib \
-            -output ../build/artifacts/macos-universal/libcel_bridge.dylib
-          tar -czf \
-            ../build/artifacts/cel-bridge-macos-universal-v$(cat ../VERSION).tar.gz \
-            -C ../build/artifacts/macos-universal libcel_bridge.dylib
 
-      - name: Build Windows Dart and Rust artifacts
+      - name: Build Windows runtime artifact
         if: matrix.kind == 'windows'
         working-directory: tools
         run: |
           dart pub get
           dart run bin/build_artifact.dart \
             --target windows-x86_64 --output ../build/artifacts
-          dart run bin/build_artifact.dart \
-            --target rust-windows-x86_64 --output ../build/artifacts
 
-      - name: Build Web Dart artifacts
+      - name: Build Web runtime artifact
         if: matrix.kind == 'web'
         working-directory: tools
         run: |
@@ -291,7 +278,7 @@ jobs:
           dart run bin/build_manifest.dart \
             --input ../build/artifacts --output "$manifest"
           dart run bin/verify_artifact.dart \
-            --manifest "$manifest" --input ../build/artifacts
+            --manifest "$manifest" --input ../build/artifacts --complete
           find ../build/artifacts -maxdepth 1 -type f -exec cp {} ../build/release/ \;
           version="$(cat ../VERSION)"
           git -C .. archive --format=tar.gz \
@@ -385,7 +372,7 @@ jobs:
           dart pub get
           dart run bin/verify_artifact.dart \
             --manifest ../build/release-download/cel-bridge-manifest-v$(cat ../VERSION).json \
-            --input ../build/release-download
+            --input ../build/release-download --complete
           (cd ../build/release-download && sha256sum -c checksums.txt)
           test -f ../build/release-download/cel_bridge.wasm
           test -f ../build/release-download/wasm_exec.js
@@ -585,7 +572,7 @@ jobs:
           from zipfile import ZipFile
 
           version = Path('VERSION').read_text().strip()
-          archive = Path('build/release-download') / f'cel-bridge-rust-windows-x86_64-v{version}.zip'
+          archive = Path('build/release-download') / f'cel-bridge-windows-x86_64-v{version}.zip'
           binary = Path('tools/fixtures/rust-release-consumer/target/debug/cel-bridge-rust-release-consumer.exe')
           with ZipFile(archive) as package:
               name = next(name for name in package.namelist() if Path(name).name == 'cel_bridge.dll')
@@ -744,7 +731,7 @@ jobs:
                       'CFBundleInfoDictionaryVersion': '6.0',
                       'CFBundleName': 'CelBridgeRustSmoke',
                       'CFBundlePackageType': 'APPL',
-                      'CFBundleShortVersionString': '0.2.0',
+                      'CFBundleShortVersionString': '0.3.0',
                       'CFBundleVersion': '1',
                       'MinimumOSVersion': '13.0',
                   },
