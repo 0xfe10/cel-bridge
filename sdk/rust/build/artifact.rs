@@ -26,6 +26,7 @@ pub fn from_directory(
                 target.library, target.name
             )
         })?;
+    println!("cargo:rerun-if-changed={}", source.display());
     let output = out_dir.join(target.library);
     fs::copy(source, &output).map_err(|error| format!("copy artifact: {error}"))?;
     if let Some(import_library) = target.import_library {
@@ -39,6 +40,7 @@ pub fn from_directory(
                 import_library, target.name
             ));
         }
+        println!("cargo:rerun-if-changed={}", import_source.display());
         fs::copy(&import_source, out_dir.join(import_library))
             .map_err(|error| format!("copy import library: {error}"))?;
     }

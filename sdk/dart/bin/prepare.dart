@@ -25,7 +25,6 @@ Future<void> main(List<String> args) async {
     }
     final packageRoot = Directory.fromUri(versionUri).parent;
     final sourceRoot = Directory.fromUri(packageRoot.uri.resolve('../../'));
-    final outputRoot = sourceRoot;
     final platform = parseOption(args, 'platform') ?? 'native';
     if (platform == 'web') {
       final output = Directory(parseOption(args, 'output') ?? 'web/cel_bridge')
@@ -50,10 +49,9 @@ Future<void> main(List<String> args) async {
         : ArtifactTarget.parse(targetOption);
     final output = Directory(
       parseOption(args, 'output') ??
-          '${outputRoot.path}${Platform.pathSeparator}.dart_tool'
-              '${Platform.pathSeparator}cel_bridge'
-              '${Platform.pathSeparator}artifacts'
-              '${Platform.pathSeparator}${packageVersion(sourceRoot)}',
+          Directory.fromUri(
+            artifactCacheDirectory(packageRoot.uri, packageVersion(sourceRoot)),
+          ).path,
     )..createSync(recursive: true);
     final build = await buildNativeArtifact(
       root: sourceRoot,

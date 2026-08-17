@@ -447,8 +447,10 @@ hooks:
 ```
 
 Source builds run `go build` in the package checkout. Linux, macOS, and
-Windows require the platform C compiler; Android requires the NDK; and iOS
-requires the Xcode SDK. CI and the repository's
+Windows require the platform C compiler, while Android requires the NDK. The
+iOS CocoaPods fallback uses a static XCFramework instead of the dynamic code
+asset requested by Flutter; set `CEL_BRIDGE_IOS_XCFRAMEWORK_PATH` to a locally
+built XCFramework as described in the iOS section below. CI and the repository's
 [`examples/dart-cli/pubspec.yaml`](../examples/dart-cli/pubspec.yaml) and
 [`examples/flutter-app/pubspec.yaml`](../examples/flutter-app/pubspec.yaml) both use
 this mode so the code can be verified directly from the checkout.
@@ -637,6 +639,9 @@ Dart API remains unchanged.
 Requirements and behavior:
 
 - the iOS deployment target is 13.0;
+- `build_from_source: true` alone does not configure CocoaPods; repository or
+  offline source verification must also provide a locally built XCFramework via
+  `CEL_BRIDGE_IOS_XCFRAMEWORK_PATH`;
 - Flutter builds run the pod script phase automatically;
 - the script phase downloads and verifies
   `cel-bridge-ios-xcframework-v0.2.0.zip` from the Release;

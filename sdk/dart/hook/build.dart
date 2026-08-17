@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
+import 'package:cel_bridge/src/artifact.dart' show artifactCacheDirectory;
 import 'package:code_assets/code_assets.dart';
 import 'package:crypto/crypto.dart';
 import 'package:hooks/hooks.dart';
@@ -190,9 +191,10 @@ Future<void> _downloadArtifact(
     );
   }
   if (!hasReleaseOverride) {
-    final cacheDirectory = input.packageRoot.resolve(
-      '.dart_tool/cel_bridge/artifacts/$_runtimeVersion/${target.name}/',
-    );
+    final cacheDirectory = artifactCacheDirectory(
+      input.packageRoot,
+      _runtimeVersion,
+    ).resolve('${target.name}/');
     if (await _copyLocalArtifact(
       output,
       cacheDirectory,

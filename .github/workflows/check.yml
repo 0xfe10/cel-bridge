@@ -15,8 +15,29 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  quality:
-    name: Quality
+  go:
+    name: Go
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Set up Go
+        uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00
+        with:
+          go-version: '1.26.5'
+          cache: true
+
+      - name: Check Go
+        run: |
+          go mod download
+          test -z "$(gofmt -l .)"
+          go vet ./...
+          go test ./...
+          go test -race ./...
+
+  dart:
+    name: Dart
     runs-on: ubuntu-latest
     steps:
       - name: Check out source
@@ -34,17 +55,6 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Set up Rust
-        uses: dtolnay/rust-toolchain@4360b52568e2003a75bf9bc1d59f33a8e3fc893c
-
-      - name: Check Go
-        run: |
-          go mod download
-          test -z "$(gofmt -l .)"
-          go vet ./...
-          go test ./...
-          go test -race ./...
-
       - name: Check Dart SDK
         working-directory: sdk/dart
         run: |
@@ -52,6 +62,40 @@ jobs:
           dart format --output=none --set-exit-if-changed .
           dart analyze
           dart test
+          dart pub publish --dry-run
+
+      - name: Check Dart CLI example
+        working-directory: examples/dart-cli
+        run: |
+          dart pub get
+          dart analyze
+          dart run
+
+      - name: Check Flutter example tests
+        working-directory: examples/flutter-app
+        run: |
+          flutter pub get
+          flutter analyze
+          flutter test
+
+  tools:
+    name: Tools
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Set up Go
+        uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00
+        with:
+          go-version: '1.26.5'
+          cache: true
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@1508160852fb97248640997f7cfb38da241df0ba
+        with:
+          channel: stable
+          cache: true
 
       - name: Check build tools
         working-directory: tools
@@ -63,6 +107,22 @@ jobs:
           dart run bin/verify_versions.dart
           dart run bin/verify_protocol.dart
 
+  rust:
+    name: Rust
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Set up Go
+        uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00
+        with:
+          go-version: '1.26.5'
+          cache: true
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@4360b52568e2003a75bf9bc1d59f33a8e3fc893c
+
       - name: Check Rust SDK
         run: |
           cargo fmt --manifest-path sdk/rust/Cargo.toml --check
@@ -71,25 +131,17 @@ jobs:
               --all-targets -- -D warnings
           CEL_BRIDGE_BUILD_FROM_SOURCE=1 \
             cargo test --manifest-path sdk/rust/Cargo.toml
-
-      - name: Check Dart CLI example
-        working-directory: examples/dart-cli
-        run: |
-          dart pub get
-          dart analyze
-          dart run
+          CEL_BRIDGE_BUILD_FROM_SOURCE=1 \
+            CEL_BRIDGE_RUNTIME_SOURCE="$GITHUB_WORKSPACE" \
+            cargo package --manifest-path sdk/rust/Cargo.toml
+          CEL_BRIDGE_BUILD_FROM_SOURCE=1 \
+            CEL_BRIDGE_RUNTIME_SOURCE="$GITHUB_WORKSPACE" \
+            cargo publish --dry-run --manifest-path sdk/rust/Cargo.toml
 
       - name: Check Rust CLI example
         run: |
           CEL_BRIDGE_BUILD_FROM_SOURCE=1 \
             cargo run --manifest-path examples/rust-cli/Cargo.toml
-
-      - name: Check Flutter example tests
-        working-directory: examples/flutter-app
-        run: |
-          flutter pub get
-          flutter analyze
-          flutter test
 
   platform:
     name: Platform (${{ matrix.name }})

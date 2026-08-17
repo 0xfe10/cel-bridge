@@ -30,6 +30,13 @@ void main() {
     );
   });
 
+  test('uses the package-local artifact cache consumed by the hook', () {
+    expect(
+      artifactCacheDirectory(Uri.file('/packages/cel_bridge/'), '0.2.0'),
+      Uri.file('/packages/cel_bridge/.dart_tool/cel_bridge/artifacts/0.2.0/'),
+    );
+  });
+
   test('archives files at safe root paths', () {
     final bytes = archiveBytes({
       'libcel_bridge.so': <int>[1, 2, 3],

@@ -214,6 +214,9 @@ final class WasmBuild {
 String packageVersion(Directory root) =>
     File(_join(root.path, 'VERSION')).readAsStringSync().trim();
 
+Uri artifactCacheDirectory(Uri packageRoot, String version) =>
+    packageRoot.resolve('.dart_tool/cel_bridge/artifacts/$version/');
+
 String celGoVersion(Directory root) {
   final source = File(_join(root.path, 'go.mod')).readAsStringSync();
   final match = RegExp(

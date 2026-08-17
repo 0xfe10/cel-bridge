@@ -22,12 +22,6 @@ pub fn run() -> Result<(), String> {
 
     let triple = env::var("TARGET").map_err(|error| error.to_string())?;
     let target = target::from_triple(&triple)?;
-    println!("cargo:rerun-if-changed=../../VERSION");
-    println!("cargo:rerun-if-changed=../../go.mod");
-    println!("cargo:rerun-if-changed=../../go.sum");
-    println!("cargo:rerun-if-changed=../../abi/cel_bridge.h");
-    println!("cargo:rerun-if-changed=../../abi/cel_bridge.def");
-    println!("cargo:rerun-if-changed=../../runtime");
 
     let out_dir = std::path::PathBuf::from(
         env::var_os("OUT_DIR").ok_or_else(|| "OUT_DIR is not set".to_string())?,
@@ -38,6 +32,7 @@ pub fn run() -> Result<(), String> {
         let manifest_dir = env::var_os("CARGO_MANIFEST_DIR")
             .ok_or_else(|| "CARGO_MANIFEST_DIR is not set".to_string())?;
         let root = source::runtime_root(manifest_dir.as_ref())?;
+        source::emit_rerun_inputs(&root);
         source::build(&root, &target, &out_dir)?
     } else {
         artifact::from_release(&target, &out_dir)?

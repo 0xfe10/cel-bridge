@@ -14,6 +14,13 @@
   },
   "$defs": {
     "typeSpec": {
+      "oneOf": [
+        {"$ref": "#/$defs/scalarType"},
+        {"$ref": "#/$defs/listType"},
+        {"$ref": "#/$defs/mapType"}
+      ]
+    },
+    "scalarType": {
       "type": "object",
       "additionalProperties": false,
       "required": ["type"],
@@ -29,13 +36,35 @@
             "bytes",
             "timestamp",
             "duration",
-            "dyn",
-            "list",
-            "map"
+            "dyn"
           ]
-        },
-        "element": {"$ref": "#/$defs/typeSpec"},
-        "key": {"$ref": "#/$defs/typeSpec"},
+        }
+      }
+    },
+    "mapKeyType": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type"],
+      "properties": {
+        "type": {"enum": ["bool", "int", "uint", "string"]}
+      }
+    },
+    "listType": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "element"],
+      "properties": {
+        "type": {"const": "list"},
+        "element": {"$ref": "#/$defs/typeSpec"}
+      }
+    },
+    "mapType": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "key", "value"],
+      "properties": {
+        "type": {"const": "map"},
+        "key": {"$ref": "#/$defs/mapKeyType"},
         "value": {"$ref": "#/$defs/typeSpec"}
       }
     }

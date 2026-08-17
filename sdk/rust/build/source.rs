@@ -3,6 +3,19 @@ use std::env;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+pub fn emit_rerun_inputs(root: &Path) {
+    for path in [
+        root.join("VERSION"),
+        root.join("go.mod"),
+        root.join("go.sum"),
+        root.join("abi/cel_bridge.h"),
+        root.join("abi/cel_bridge.def"),
+        root.join("runtime"),
+    ] {
+        println!("cargo:rerun-if-changed={}", path.display());
+    }
+}
+
 pub fn runtime_root(manifest_dir: &Path) -> Result<PathBuf, String> {
     if let Some(value) = env::var_os("CEL_BRIDGE_RUNTIME_SOURCE") {
         let path = PathBuf::from(value);

@@ -20,73 +20,111 @@
         {"$ref": "#/$defs/map"}
       ]
     },
-    "base": {
+    "null": {
       "type": "object",
+      "additionalProperties": false,
       "required": ["kind"],
       "properties": {
         "$cel_bridge": {"$ref": "#/$defs/marker"},
-        "kind": {"type": "string"}
+        "kind": {"const": "null"}
       }
     },
-    "null": {
-      "allOf": [{"$ref": "#/$defs/base"}],
-      "properties": {"kind": {"const": "null"}}
-    },
     "bool": {
-      "allOf": [{"$ref": "#/$defs/base"}],
-      "required": ["kind", "value"],
-      "properties": {"kind": {"const": "bool"}, "value": {"type": "boolean"}}
-    },
-    "int": {
-      "allOf": [{"$ref": "#/$defs/base"}],
-      "required": ["kind", "value"],
-      "properties": {"kind": {"const": "int"}, "value": {"pattern": "^-?[0-9]+$"}}
-    },
-    "uint": {
-      "allOf": [{"$ref": "#/$defs/base"}],
-      "required": ["kind", "value"],
-      "properties": {"kind": {"const": "uint"}, "value": {"pattern": "^[0-9]+$"}}
-    },
-    "double": {
-      "allOf": [{"$ref": "#/$defs/base"}],
+      "type": "object",
+      "additionalProperties": false,
       "required": ["kind", "value"],
       "properties": {
+        "$cel_bridge": {"$ref": "#/$defs/marker"},
+        "kind": {"const": "bool"},
+        "value": {"type": "boolean"}
+      }
+    },
+    "int": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "value"],
+      "properties": {
+        "$cel_bridge": {"$ref": "#/$defs/marker"},
+        "kind": {"const": "int"},
+        "value": {"type": "string", "pattern": "^-?[0-9]+$"}
+      }
+    },
+    "uint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "value"],
+      "properties": {
+        "$cel_bridge": {"$ref": "#/$defs/marker"},
+        "kind": {"const": "uint"},
+        "value": {"type": "string", "pattern": "^[0-9]+$"}
+      }
+    },
+    "double": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "value"],
+      "properties": {
+        "$cel_bridge": {"$ref": "#/$defs/marker"},
         "kind": {"const": "double"},
         "value": {"type": "string"}
       }
     },
     "string": {
-      "allOf": [{"$ref": "#/$defs/base"}],
+      "type": "object",
+      "additionalProperties": false,
       "required": ["kind", "value"],
-      "properties": {"kind": {"const": "string"}, "value": {"type": "string"}}
+      "properties": {
+        "$cel_bridge": {"$ref": "#/$defs/marker"},
+        "kind": {"const": "string"},
+        "value": {"type": "string"}
+      }
     },
     "bytes": {
-      "allOf": [{"$ref": "#/$defs/base"}],
+      "type": "object",
+      "additionalProperties": false,
       "required": ["kind", "value"],
-      "properties": {"kind": {"const": "bytes"}, "value": {"type": "string"}}
+      "properties": {
+        "$cel_bridge": {"$ref": "#/$defs/marker"},
+        "kind": {"const": "bytes"},
+        "value": {"type": "string"}
+      }
     },
     "timestamp": {
-      "allOf": [{"$ref": "#/$defs/base"}],
+      "type": "object",
+      "additionalProperties": false,
       "required": ["kind", "value"],
-      "properties": {"kind": {"const": "timestamp"}, "value": {"type": "string"}}
+      "properties": {
+        "$cel_bridge": {"$ref": "#/$defs/marker"},
+        "kind": {"const": "timestamp"},
+        "value": {"type": "string"}
+      }
     },
     "duration": {
-      "allOf": [{"$ref": "#/$defs/base"}],
+      "type": "object",
+      "additionalProperties": false,
       "required": ["kind", "value"],
-      "properties": {"kind": {"const": "duration"}, "value": {"type": "string"}}
+      "properties": {
+        "$cel_bridge": {"$ref": "#/$defs/marker"},
+        "kind": {"const": "duration"},
+        "value": {"type": "string"}
+      }
     },
     "list": {
-      "allOf": [{"$ref": "#/$defs/base"}],
+      "type": "object",
+      "additionalProperties": false,
       "required": ["kind", "items"],
       "properties": {
+        "$cel_bridge": {"$ref": "#/$defs/marker"},
         "kind": {"const": "list"},
         "items": {"type": "array", "items": {"$ref": "#/$defs/value"}}
       }
     },
     "map": {
-      "allOf": [{"$ref": "#/$defs/base"}],
+      "type": "object",
+      "additionalProperties": false,
       "required": ["kind", "entries"],
       "properties": {
+        "$cel_bridge": {"$ref": "#/$defs/marker"},
         "kind": {"const": "map"},
         "entries": {
           "type": "array",
