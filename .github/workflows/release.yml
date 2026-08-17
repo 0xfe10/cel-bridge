@@ -294,9 +294,9 @@ jobs:
             --manifest "$manifest" --input ../build/artifacts
           find ../build/artifacts -maxdepth 1 -type f -exec cp {} ../build/release/ \;
           version="$(cat ../VERSION)"
-          git archive --format=tar.gz \
+          git -C .. archive --format=tar.gz \
             --prefix="cel-bridge-runtime-source-$version/" \
-            -o "../build/release/cel-bridge-runtime-source-v$version.tar.gz" \
+            -o "build/release/cel-bridge-runtime-source-v$version.tar.gz" \
             "${{ needs.version.outputs.commit }}" \
             go.mod go.sum VERSION LICENSE abi runtime
           : > ../build/release/checksums.txt
