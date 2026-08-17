@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/0xfe10/cel-bridge/protocol/schema/response.schema.json",
+  "title": "cel-bridge response envelope",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["protocolVersion", "ok"],
+  "properties": {
+    "protocolVersion": {"const": 1},
+    "ok": {"type": "boolean"},
+    "result": {},
+    "error": {"$ref": "#/$defs/error"}
+  },
+  "oneOf": [
+    {"required": ["result"], "properties": {"ok": {"const": true}}},
+    {"required": ["error"], "properties": {"ok": {"const": false}}}
+  ],
+  "$defs": {
+    "issue": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["severity", "code", "message"],
+      "properties": {
+        "severity": {"type": "string"},
+        "code": {"type": "string"},
+        "message": {"type": "string"},
+        "line": {"type": "integer", "minimum": 1},
+        "column": {"type": "integer", "minimum": 1}
+      }
+    },
+    "error": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "message", "issues"],
+      "properties": {
+        "code": {"type": "string"},
+        "message": {"type": "string"},
+        "issues": {"type": "array", "items": {"$ref": "#/$defs/issue"}}
+      }
+    }
+  }
+}

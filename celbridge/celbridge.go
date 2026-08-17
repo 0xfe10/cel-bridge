@@ -1,15 +1,27 @@
 package celbridge
 
-import (
-	"github.com/0xfe10/cel-bridge/internal/runtime"
-)
+import runtimecelbridge "github.com/0xfe10/cel-bridge/runtime/celbridge"
 
-var defaultRuntime = runtime.New(runtime.DefaultLimits)
-
+// Validate preserves the v0.1 Go import path while new code can use
+// runtime/celbridge directly.
 func Validate(environmentJSON string, source string) string {
-	return defaultRuntime.JSON(defaultRuntime.Validate(environmentJSON, source))
+	return runtimecelbridge.Validate(environmentJSON, source)
 }
 
+// Evaluate preserves the v0.1 Go import path while new code can use
+// runtime/celbridge directly.
 func Evaluate(environmentJSON string, source string, variablesJSON string) string {
-	return defaultRuntime.JSON(defaultRuntime.Evaluate(environmentJSON, source, variablesJSON))
+	return runtimecelbridge.Evaluate(environmentJSON, source, variablesJSON)
+}
+
+// Version preserves the v0.1 Go import path while new code can use
+// runtime/celbridge directly.
+func Version() string {
+	return runtimecelbridge.Version()
+}
+
+// RuntimeInfo preserves the v0.1 Go import path while new code can use
+// runtime/celbridge directly.
+func RuntimeInfo() string {
+	return runtimecelbridge.RuntimeInfo()
 }

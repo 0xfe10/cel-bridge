@@ -1,0 +1,9 @@
+[package]
+name = "cel-bridge-rust-release-consumer"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+cel-bridge = { path = "../../../sdk/rust" }
+serde_json = "1.0"

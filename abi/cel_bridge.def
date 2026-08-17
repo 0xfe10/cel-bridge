@@ -1,0 +1,7 @@
+LIBRARY cel_bridge.dll
+EXPORTS
+    cel_bridge_version
+    cel_bridge_runtime_info
+    cel_bridge_validate
+    cel_bridge_evaluate
+    cel_bridge_free

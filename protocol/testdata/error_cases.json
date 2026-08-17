@@ -1,0 +1,54 @@
+[
+  {
+    "name": "undeclared variable",
+    "environment": {"schemaVersion": 1, "variables": {}},
+    "source": "missing == true",
+    "variables": {},
+    "operation": "validate",
+    "expectedCode": "undeclared_reference"
+  },
+  {
+    "name": "invalid type",
+    "environment": {
+      "schemaVersion": 1,
+      "variables": {"age": {"type": "int"}}
+    },
+    "source": "age + \"years\"",
+    "variables": {"age": 20},
+    "operation": "validate",
+    "expectedCode": "type_error"
+  },
+  {
+    "name": "invalid environment",
+    "environment": {
+      "schemaVersion": 1,
+      "variables": {"1age": {"type": "int"}}
+    },
+    "source": "true",
+    "variables": {},
+    "operation": "evaluate",
+    "expectedCode": "invalid_environment"
+  },
+  {
+    "name": "compile error during evaluation",
+    "environment": {
+      "schemaVersion": 1,
+      "variables": {"age": {"type": "int"}}
+    },
+    "source": "age +",
+    "variables": {"age": 20},
+    "operation": "evaluate",
+    "expectedCode": "compile_error"
+  },
+  {
+    "name": "evaluation error",
+    "environment": {
+      "schemaVersion": 1,
+      "variables": {"age": {"type": "int"}}
+    },
+    "source": "age / 0",
+    "variables": {"age": 20},
+    "operation": "evaluate",
+    "expectedCode": "evaluation_error"
+  }
+]

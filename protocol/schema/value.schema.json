@@ -1,0 +1,144 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/0xfe10/cel-bridge/protocol/schema/value.schema.json",
+  "title": "cel-bridge tagged CEL value",
+  "$ref": "#/$defs/value",
+  "$defs": {
+    "marker": {"const": true},
+    "value": {
+      "oneOf": [
+        {"$ref": "#/$defs/null"},
+        {"$ref": "#/$defs/bool"},
+        {"$ref": "#/$defs/int"},
+        {"$ref": "#/$defs/uint"},
+        {"$ref": "#/$defs/double"},
+        {"$ref": "#/$defs/string"},
+        {"$ref": "#/$defs/bytes"},
+        {"$ref": "#/$defs/timestamp"},
+        {"$ref": "#/$defs/duration"},
+        {"$ref": "#/$defs/list"},
+        {"$ref": "#/$defs/map"}
+      ]
+    },
+    "null": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind"],
+      "properties": {
+        "$cel_bridge": {"$ref": "#/$defs/marker"},
+        "kind": {"const": "null"}
+      }
+    },
+    "bool": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "value"],
+      "properties": {
+        "$cel_bridge": {"$ref": "#/$defs/marker"},
+        "kind": {"const": "bool"},
+        "value": {"type": "boolean"}
+      }
+    },
+    "int": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "value"],
+      "properties": {
+        "$cel_bridge": {"$ref": "#/$defs/marker"},
+        "kind": {"const": "int"},
+        "value": {"type": "string", "pattern": "^-?[0-9]+$"}
+      }
+    },
+    "uint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "value"],
+      "properties": {
+        "$cel_bridge": {"$ref": "#/$defs/marker"},
+        "kind": {"const": "uint"},
+        "value": {"type": "string", "pattern": "^[0-9]+$"}
+      }
+    },
+    "double": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "value"],
+      "properties": {
+        "$cel_bridge": {"$ref": "#/$defs/marker"},
+        "kind": {"const": "double"},
+        "value": {"type": "string"}
+      }
+    },
+    "string": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "value"],
+      "properties": {
+        "$cel_bridge": {"$ref": "#/$defs/marker"},
+        "kind": {"const": "string"},
+        "value": {"type": "string"}
+      }
+    },
+    "bytes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "value"],
+      "properties": {
+        "$cel_bridge": {"$ref": "#/$defs/marker"},
+        "kind": {"const": "bytes"},
+        "value": {"type": "string"}
+      }
+    },
+    "timestamp": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "value"],
+      "properties": {
+        "$cel_bridge": {"$ref": "#/$defs/marker"},
+        "kind": {"const": "timestamp"},
+        "value": {"type": "string"}
+      }
+    },
+    "duration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "value"],
+      "properties": {
+        "$cel_bridge": {"$ref": "#/$defs/marker"},
+        "kind": {"const": "duration"},
+        "value": {"type": "string"}
+      }
+    },
+    "list": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "items"],
+      "properties": {
+        "$cel_bridge": {"$ref": "#/$defs/marker"},
+        "kind": {"const": "list"},
+        "items": {"type": "array", "items": {"$ref": "#/$defs/value"}}
+      }
+    },
+    "map": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "entries"],
+      "properties": {
+        "$cel_bridge": {"$ref": "#/$defs/marker"},
+        "kind": {"const": "map"},
+        "entries": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["key", "value"],
+            "properties": {
+              "key": {"$ref": "#/$defs/value"},
+              "value": {"$ref": "#/$defs/value"}
+            }
+          }
+        }
+      }
+    }
+  }
+}
