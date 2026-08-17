@@ -278,7 +278,7 @@ jobs:
           dart run bin/build_manifest.dart \
             --input ../build/artifacts --output "$manifest"
           dart run bin/verify_artifact.dart \
-            --manifest "$manifest" --input ../build/artifacts
+            --manifest "$manifest" --input ../build/artifacts --complete
           find ../build/artifacts -maxdepth 1 -type f -exec cp {} ../build/release/ \;
           version="$(cat ../VERSION)"
           git -C .. archive --format=tar.gz \
@@ -372,7 +372,7 @@ jobs:
           dart pub get
           dart run bin/verify_artifact.dart \
             --manifest ../build/release-download/cel-bridge-manifest-v$(cat ../VERSION).json \
-            --input ../build/release-download
+            --input ../build/release-download --complete
           (cd ../build/release-download && sha256sum -c checksums.txt)
           test -f ../build/release-download/cel_bridge.wasm
           test -f ../build/release-download/wasm_exec.js

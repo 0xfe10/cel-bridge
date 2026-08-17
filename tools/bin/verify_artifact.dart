@@ -7,7 +7,7 @@ Future<void> main(List<String> args) async {
   if (hasOption(args, 'help')) {
     stdout.writeln(
       'usage: dart run bin/verify_artifact.dart '
-      '--manifest <file> [--input <directory>]',
+      '--manifest <file> [--input <directory>] [--complete]',
     );
     return;
   }
@@ -80,6 +80,17 @@ Future<void> main(List<String> args) async {
       if (!RegExp(r'^[0-9a-f]{64}$').hasMatch(item['sha256'] as String) ||
           await sha256File(file) != item['sha256']) {
         throw StateError('artifact SHA-256 mismatch for ${file.path}');
+      }
+    }
+    if (hasOption(args, 'complete')) {
+      final missing = releaseArtifactSpecs
+          .map((artifact) => artifact.id)
+          .where((id) => !seen.contains(id))
+          .toList();
+      if (missing.isNotEmpty) {
+        throw StateError(
+          'manifest is missing release artifacts: ${missing.join(', ')}',
+        );
       }
     }
     stdout.writeln('verified ${artifacts.length} artifact(s)');
