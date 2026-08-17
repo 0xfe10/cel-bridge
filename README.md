@@ -1,15 +1,25 @@
 # cel-bridge
 
-Cross-platform CEL evaluation through one Go `cel-go` runtime. Dart/Flutter and
-Rust clients share the same C ABI, Go Wasm backend, and JSON wire protocol;
-they do not implement CEL semantics themselves.
+cel-bridge provides cross-platform CEL evaluation through one Go
+[`cel-go`](https://github.com/google/cel-go) runtime. The Dart/Flutter and Rust
+SDKs share the same C ABI and JSON protocol; neither SDK reimplements CEL
+semantics.
 
-The current release is `v0.2.0`. The wire `protocolVersion` remains `1`.
+The current source version is `0.2.0`, and the wire `protocolVersion` is `1`.
 
-## SDKs
+## At a glance
 
-- [Dart / Flutter integration guide](docs/dart.md)
-- [Rust integration guide](docs/rust.md)
+- one evaluator: Go and `cel-go`;
+- Dart and Flutter support for desktop, mobile, and Web;
+- Rust support for desktop and mobile;
+- fixed, checksummed native artifacts by default;
+- optional local source builds for repository and controlled-environment use;
+- shared conformance cases across Go, Dart, and Rust.
+
+## Documentation
+
+- [Dart and Flutter integration](docs/dart.md)
+- [Rust integration](docs/rust.md)
 - [v0.2.0 migration guide](docs/migration-0.2.md)
 - [Protocol contract](protocol/README.md)
 
@@ -23,22 +33,80 @@ The current release is `v0.2.0`. The wire `protocolVersion` remains `1`.
 Windows ARM64 and Rust Web/Wasm are not provided in `v0.2.0`. The Rust crate
 uses `std`; `no_std` is not supported.
 
-## Dart / Flutter installation
+## Native runtime selection
 
-Until pub.dev publication, pin the Git tag and the package subdirectory:
+Both SDKs use the same Go runtime and provide the same two runtime sources, but
+their build systems expose the source-build switch differently:
+
+| SDK | Default | Build from source |
+| --- | --- | --- |
+| Dart / Flutter | Download and verify the matching Release artifact | Set `hooks.user_defines.cel_bridge.build_from_source: true` in the consuming `pubspec.yaml` |
+| Rust | Download and verify the matching Release artifact | Set `CEL_BRIDGE_BUILD_FROM_SOURCE=1` for the Cargo command |
+
+The different switches are intentional. Dart build hooks run in a
+semi-hermetic environment that strips custom environment variables for
+reproducibility and cache correctness. Consequently,
+`CEL_BRIDGE_BUILD_FROM_SOURCE` is not visible to the automatic Dart build hook;
+the supported Dart configuration is `hooks.user_defines`.
+
+Source mode requires a cel-bridge checkout containing the Go module and
+`runtime/` sources, plus Go and the platform C toolchain. Use the default
+artifact mode for ordinary third-party builds and published packages.
+
+### Explicit Dart cache preparation
+
+Repository tooling uses the same environment-variable name as Rust when source
+compilation is invoked explicitly rather than through the automatic hook:
+
+```bash
+cd sdk/dart
+dart pub get
+CEL_BRIDGE_BUILD_FROM_SOURCE=1 dart run bin/prepare.dart \
+  --target linux-x86_64
+```
+
+This command prepares the package-local native cache. It does not make
+`CEL_BRIDGE_BUILD_FROM_SOURCE` an automatic Dart hook setting.
+
+### Important iOS source-build requirement
+
+The iOS runtime is linked as a static XCFramework through CocoaPods. Setting
+Dart's `build_from_source: true` only controls the Dart native-asset hook; it
+does not build or configure the CocoaPods XCFramework.
+
+For an iOS source or offline build, first build the XCFramework and then expose
+its absolute path to Flutter:
+
+```bash
+export CEL_BRIDGE_IOS_XCFRAMEWORK_PATH=/absolute/path/to/libcel_bridge.xcframework
+flutter build ios --simulator --no-codesign
+```
+
+Without `CEL_BRIDGE_IOS_XCFRAMEWORK_PATH`, CocoaPods uses the fixed Release
+XCFramework download path. See the [iOS integration notes](docs/dart.md#ios)
+for mirror and checksum variables.
+
+## Dart / Flutter
+
+### Installation
+
+Before pub.dev publication, depend on the Git package and pin a reviewed commit.
+The example below uses the merge commit for the `0.2.0` source tree:
 
 ```yaml
 dependencies:
   cel_bridge:
     git:
       url: https://github.com/0xfe10/cel-bridge.git
-      ref: v0.2.0
+      ref: 8407614d92cb0e1382332d765b4321e8b975993d
       path: sdk/dart
 ```
 
-Native builds download the matching versioned Release artifact and verify its
-SHA-256 manifest. Applications do not need Go in this mode. To build from a
-checkout instead, add this to the consuming package:
+The default build downloads the exact versioned native artifact and verifies
+its manifest, size, and SHA-256 checksum. Go is not required.
+
+For source mode from a full repository checkout, configure the consuming
+package:
 
 ```yaml
 hooks:
@@ -47,7 +115,7 @@ hooks:
       build_from_source: true
 ```
 
-Minimal usage:
+### Minimal usage
 
 ```dart
 import 'package:cel_bridge/cel_bridge.dart';
@@ -61,12 +129,16 @@ final result = await runtime.evaluate(
   source: 'age >= 18',
   variables: {'age': 20},
 );
+
+print(result);
 ```
 
-The full API, typed values, error codes, Web hosting, native source builds, and
-iOS fallback are documented in [docs/dart.md](docs/dart.md).
+See [docs/dart.md](docs/dart.md) for typed CEL values, validation, error
+handling, Web hosting, artifact mirrors, and platform packaging.
 
-## Rust installation
+## Rust
+
+### Installation
 
 After crates.io publication:
 
@@ -76,26 +148,28 @@ cel-bridge = "0.2.0"
 serde_json = "1.0"
 ```
 
-During the transition, use the Git tag:
+Before crates.io publication, pin the Git dependency to the same reviewed
+commit:
 
 ```toml
 [dependencies]
-cel-bridge = { git = "https://github.com/0xfe10/cel-bridge.git", tag = "v0.2.0", package = "cel-bridge" }
+cel-bridge = { git = "https://github.com/0xfe10/cel-bridge.git", rev = "8407614d92cb0e1382332d765b4321e8b975993d", package = "cel-bridge" }
 ```
 
-The default Rust build downloads and verifies a target-specific runtime
-artifact. Repository development can use source mode:
+The default Cargo build downloads and verifies the target-specific runtime
+artifact. To compile the runtime from a checkout instead:
 
 ```bash
-CEL_BRIDGE_BUILD_FROM_SOURCE=1 cargo test --manifest-path sdk/rust/Cargo.toml
+CEL_BRIDGE_BUILD_FROM_SOURCE=1 cargo build
 ```
 
-See [docs/rust.md](docs/rust.md) for artifact overrides, Android packaging,
-iOS linking, Windows DLL deployment, and error handling.
+`CEL_BRIDGE_RUNTIME_SOURCE=/absolute/path/to/cel-bridge` can select a separate
+runtime checkout. See [docs/rust.md](docs/rust.md) for artifact overrides,
+Android packaging, iOS linking, Windows DLL deployment, and error handling.
 
 ## Examples
 
-Run the Dart CLI:
+Run the Dart CLI from the repository:
 
 ```bash
 cd examples/dart-cli
@@ -103,7 +177,7 @@ dart pub get
 dart run
 ```
 
-Run the Flutter workbench:
+Run the Flutter workbench on Web:
 
 ```bash
 cd examples/flutter-app
@@ -111,28 +185,29 @@ flutter pub get
 flutter run -d chrome
 ```
 
-Run the Rust CLI from the checkout:
+Run the Rust CLI against a locally compiled runtime:
 
 ```bash
 CEL_BRIDGE_BUILD_FROM_SOURCE=1 \
   cargo run --manifest-path examples/rust-cli/Cargo.toml
 ```
 
-## Release artifacts
+## Release integrity
 
-Each release contains versioned Dart and Rust native archives, the Go Wasm
-bundle, a restricted runtime source archive, `checksums.txt`, and
-`cel-bridge-manifest-v<version>.json`. The manifest v2 entry records
-`consumer`, `os`, `architecture`, `linkage`, `sha256`, and `size`.
+Each GitHub Release contains versioned Dart and Rust native archives, the Go
+Wasm bundle, a restricted runtime source archive, `checksums.txt`, and
+`cel-bridge-manifest-v<version>.json`. Manifest entries identify the consumer,
+OS, architecture, linkage, SHA-256 digest, and byte size.
 
-The Release workflow creates a Draft Release, downloads it again, verifies all
-checksums, runs Dart/Rust consumers against the downloaded binaries, and only
-then publishes the GitHub Release. pub.dev and crates.io publication remains a
-manual approval step.
+The Release workflow creates a Draft Release, downloads every artifact again,
+verifies checksums, and runs Dart, Rust, Web, Android, and iOS consumers before
+publication. pub.dev and crates.io publication remain manual approval steps.
 
-The historical `v0.1.0` tag and Release are retained unchanged.
+The historical `v0.1.0` tag and Release remain unchanged.
 
-## Development checks
+## Development
+
+Run the main local checks:
 
 ```bash
 go test ./...
@@ -142,7 +217,8 @@ go test -race ./...
 CEL_BRIDGE_BUILD_FROM_SOURCE=1 cargo test --manifest-path sdk/rust/Cargo.toml
 ```
 
-Platform compilation, Flutter checks, browser smoke, artifact manifests, and
-Draft Release consumption are defined in
+CI exposes Go, Dart, tools, and Rust as separate checks. Platform jobs compile
+and exercise Linux, Windows, Web, Android emulator, and iOS simulator consumers.
+The complete definitions are in
 [`check.yml`](.github/workflows/check.yml) and
 [`release.yml`](.github/workflows/release.yml).
