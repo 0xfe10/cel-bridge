@@ -22,13 +22,10 @@ void main() {
 }
 
 Future<void> _waitFor(WidgetTester tester, Finder finder) async {
-  final timeout = Stopwatch()..start();
-  while (timeout.elapsed < const Duration(minutes: 2)) {
+  for (var attempt = 0; attempt < 120; attempt++) {
     await tester.pump();
     if (finder.evaluate().isNotEmpty) return;
-    await tester.runAsync(
-      () => Future<void>.delayed(const Duration(seconds: 1)),
-    );
+    await tester.pump(const Duration(seconds: 1));
   }
   await tester.pump();
 }
