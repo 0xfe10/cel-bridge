@@ -5,6 +5,7 @@ use std::env;
 use std::fs;
 use std::io::{Cursor, Read};
 use std::path::{Component, Path, PathBuf};
+use std::process::Command;
 use tar::Archive;
 use zip::ZipArchive;
 
@@ -108,6 +109,9 @@ pub fn from_release(target: &Target, out_dir: &Path) -> Result<PathBuf, String> 
     }
     let output = out_dir.join(target.library);
     extract(file, &bytes, target.library, target.archive_prefix, &output)?;
+    if let Some(architecture) = target.archive_arch {
+        thin_archive(&output, architecture)?;
+    }
     if let Some(import_library) = target.import_library {
         extract(
             file,
@@ -118,6 +122,24 @@ pub fn from_release(target: &Target, out_dir: &Path) -> Result<PathBuf, String> 
         )?;
     }
     Ok(output)
+}
+
+fn thin_archive(archive: &Path, architecture: &str) -> Result<(), String> {
+    let thinned = archive.with_extension("thin.a");
+    let result = Command::new("lipo")
+        .arg(archive)
+        .args(["-thin", architecture, "-output"])
+        .arg(&thinned)
+        .output()
+        .map_err(|error| format!("run lipo for {architecture}: {error}"))?;
+    if !result.status.success() {
+        return Err(format!(
+            "thin iOS simulator archive for {architecture}: {}",
+            String::from_utf8_lossy(&result.stderr).trim()
+        ));
+    }
+    fs::rename(&thinned, archive)
+        .map_err(|error| format!("replace thinned iOS simulator archive: {error}"))
 }
 
 fn get(url: &str, local_http: bool) -> Result<Vec<u8>, String> {

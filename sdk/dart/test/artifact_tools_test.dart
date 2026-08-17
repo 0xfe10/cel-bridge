@@ -51,8 +51,8 @@ void main() {
 
   test('uses the package-local artifact cache consumed by the hook', () {
     expect(
-      artifactCacheDirectory(Uri.file('/packages/cel_bridge/'), '0.3.0'),
-      Uri.file('/packages/cel_bridge/.dart_tool/cel_bridge/artifacts/0.3.0/'),
+      artifactCacheDirectory(Uri.file('/packages/cel_bridge/'), '0.3.1'),
+      Uri.file('/packages/cel_bridge/.dart_tool/cel_bridge/artifacts/0.3.1/'),
     );
   });
 

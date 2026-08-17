@@ -507,7 +507,7 @@ jobs:
 
       - name: Install iOS Rust targets
         if: matrix.kind == 'ios'
-        run: rustup target add aarch64-apple-ios aarch64-apple-ios-sim
+        run: rustup target add aarch64-apple-ios aarch64-apple-ios-sim x86_64-apple-ios
 
       - name: Download Draft Release assets
         shell: bash
@@ -695,7 +695,7 @@ jobs:
             if curl --fail --silent "http://127.0.0.1:8126/v$version/cel-bridge-manifest-v$version.json" >/dev/null; then break; fi
             sleep 1
           done
-          for target in aarch64-apple-ios aarch64-apple-ios-sim; do
+          for target in aarch64-apple-ios aarch64-apple-ios-sim x86_64-apple-ios; do
             CEL_BRIDGE_RELEASE_BASE_URL=http://127.0.0.1:8126 \
               CEL_BRIDGE_ALLOW_INSECURE_RELEASE_BASE=1 \
               cargo build --manifest-path sdk/rust/tests-platform/ios/Cargo.toml \
@@ -731,7 +731,7 @@ jobs:
                       'CFBundleInfoDictionaryVersion': '6.0',
                       'CFBundleName': 'CelBridgeRustSmoke',
                       'CFBundlePackageType': 'APPL',
-                      'CFBundleShortVersionString': '0.3.0',
+                      'CFBundleShortVersionString': '0.3.1',
                       'CFBundleVersion': '1',
                       'MinimumOSVersion': '13.0',
                   },
