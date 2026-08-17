@@ -55,7 +55,11 @@ Future<void> main(List<String> args) async {
         assetPath,
         libraryName,
       );
-      output.dependencies.add(sourceRoot.uri);
+      output.dependencies.addAll([
+        sourceRoot.uri.resolve('go.mod'),
+        sourceRoot.uri.resolve('go.sum'),
+        sourceRoot.uri.resolve('runtime/'),
+      ]);
     } else {
       await _downloadArtifact(input, output, target, libraryName, assetPath);
     }

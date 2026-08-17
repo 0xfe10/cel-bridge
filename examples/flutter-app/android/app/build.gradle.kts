@@ -42,30 +42,3 @@ android {
 flutter {
     source = "../.."
 }
-
-tasks.configureEach {
-    if (name == "compileFlutterBuildDebug") {
-        dependsOn("checkDebugAarMetadata")
-        dependsOn("generateDebugResValues")
-        dependsOn("mergeDebugNativeDebugMetadata")
-        dependsOn("mergeDebugAssets")
-        dependsOn("mergeDebugShaders")
-        dependsOn("mapDebugSourceSetPaths")
-        dependsOn("generateDebugResources")
-        dependsOn("mergeDebugResources")
-        dependsOn("packageDebugResources")
-        dependsOn("parseDebugLocalResources")
-        dependsOn("createDebugCompatibleScreenManifests")
-        dependsOn("extractDeepLinksDebug")
-        dependsOn("outputDebugAppLinkSettings")
-        dependsOn("processDebugManifest")
-        dependsOn("processDebugManifestForPackage")
-        dependsOn("processDebugMainManifest")
-        dependsOn("javaPreCompileDebug")
-        dependsOn("desugarDebugFileDependencies")
-        dependsOn("checkDebugDuplicateClasses")
-        dependsOn("mergeLibDexDebug")
-        dependsOn("mergeExtDexDebug")
-        dependsOn(":integration_test:writeDebugAarMetadata")
-    }
-}
