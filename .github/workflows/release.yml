@@ -276,8 +276,7 @@ jobs:
                 >> ../build/release/checksums.txt
             done
 
-      - name: Validate release target before mutation
-        id: target
+      - name: Validate release tag
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -286,25 +285,8 @@ jobs:
         run: |
           set -euo pipefail
           test "$(gh api "repos/$GITHUB_REPOSITORY/commits/$RELEASE_TAG" --jq .sha)" = "$RELEASE_COMMIT"
-          set +e
-          release_lookup="$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft 2>&1)"
-          release_status=$?
-          set -e
-          if [[ "$release_status" -eq 0 ]]; then
-            if [[ "$release_lookup" == "true" ]]; then
-              echo "state=draft" >> "$GITHUB_OUTPUT"
-            else
-              echo "state=published" >> "$GITHUB_OUTPUT"
-            fi
-          elif [[ "$release_status" -eq 1 && "$release_lookup" == "release not found" ]]; then
-            echo "state=missing" >> "$GITHUB_OUTPUT"
-          else
-            printf '%s\n' "$release_lookup" >&2
-            exit "$release_status"
-          fi
 
       - name: Publish GitHub Release
-        if: steps.target.outputs.state != 'published'
         uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228
         with:
           tag_name: ${{ needs.version.outputs.tag }}
@@ -313,6 +295,7 @@ jobs:
           generate_release_notes: true
           prerelease: ${{ contains(needs.version.outputs.tag, '-') }}
           fail_on_unmatched_files: true
+          overwrite_files: true
           files: build/release/*
         env:
           GITHUB_TOKEN: ${{ github.token }}
