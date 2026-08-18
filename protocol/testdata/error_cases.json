@@ -61,5 +61,27 @@
     "variables": {},
     "operation": "evaluate",
     "expectedCode": "missing_variable"
+  },
+  {
+    "name": "parse error during validation",
+    "environment": {
+      "schemaVersion": 1,
+      "variables": {"age": {"type": "int"}}
+    },
+    "source": "age +",
+    "variables": {"age": 20},
+    "operation": "validate",
+    "expectedCode": "parse_error"
+  },
+  {
+    "name": "undeclared reference during evaluation",
+    "environment": {
+      "schemaVersion": 1,
+      "variables": {"age": {"type": "int"}}
+    },
+    "source": "missing == 1",
+    "variables": {"age": 20},
+    "operation": "evaluate",
+    "expectedCode": "compile_error"
   }
 ]

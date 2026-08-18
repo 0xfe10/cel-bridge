@@ -304,5 +304,218 @@
         }
       ]
     }
+  },
+  {
+    "name": "boolean value",
+    "environment": {
+      "schemaVersion": 1,
+      "variables": {"enabled": {"type": "bool"}}
+    },
+    "source": "enabled",
+    "variables": {"enabled": true},
+    "expected": {"kind": "bool", "value": true}
+  },
+  {
+    "name": "string value",
+    "environment": {
+      "schemaVersion": 1,
+      "variables": {"name": {"type": "string"}}
+    },
+    "source": "name",
+    "variables": {"name": "cel"},
+    "expected": {"kind": "string", "value": "cel"}
+  },
+  {
+    "name": "null literal",
+    "environment": {
+      "schemaVersion": 1,
+      "variables": {}
+    },
+    "source": "null",
+    "variables": {},
+    "expected": {"kind": "null"}
+  },
+  {
+    "name": "finite double",
+    "environment": {
+      "schemaVersion": 1,
+      "variables": {"number": {"type": "double"}}
+    },
+    "source": "number",
+    "variables": {
+      "number": {"$cel_bridge": true, "kind": "double", "value": "1.25"}
+    },
+    "expected": {"kind": "double", "value": "1.25"}
+  },
+  {
+    "name": "negative infinity",
+    "environment": {
+      "schemaVersion": 1,
+      "variables": {"number": {"type": "double"}}
+    },
+    "source": "number",
+    "variables": {
+      "number": {"$cel_bridge": true, "kind": "double", "value": "-Infinity"}
+    },
+    "expected": {"kind": "double", "value": "-Infinity"}
+  },
+  {
+    "name": "string concatenation",
+    "environment": {
+      "schemaVersion": 1,
+      "variables": {"name": {"type": "string"}}
+    },
+    "source": "\"hello, \" + name",
+    "variables": {"name": "cel"},
+    "expected": {"kind": "string", "value": "hello, cel"}
+  },
+  {
+    "name": "ternary string",
+    "environment": {
+      "schemaVersion": 1,
+      "variables": {"age": {"type": "int"}}
+    },
+    "source": "age >= 18 ? \"adult\" : \"child\"",
+    "variables": {"age": 20},
+    "expected": {"kind": "string", "value": "adult"}
+  },
+  {
+    "name": "list size",
+    "environment": {
+      "schemaVersion": 1,
+      "variables": {
+        "tags": {"type": "list", "element": {"type": "string"}}
+      }
+    },
+    "source": "size(tags)",
+    "variables": {"tags": ["a", "b", "c"]},
+    "expected": {"kind": "int", "value": "3"}
+  },
+  {
+    "name": "list all macro",
+    "environment": {
+      "schemaVersion": 1,
+      "variables": {
+        "nums": {"type": "list", "element": {"type": "int"}}
+      }
+    },
+    "source": "nums.all(n, n > 0)",
+    "variables": {"nums": [1, 2, 3]},
+    "expected": {"kind": "bool", "value": true}
+  },
+  {
+    "name": "list filter macro",
+    "environment": {
+      "schemaVersion": 1,
+      "variables": {
+        "nums": {"type": "list", "element": {"type": "int"}}
+      }
+    },
+    "source": "nums.filter(n, n > 1)",
+    "variables": {"nums": [1, 2, 3]},
+    "expected": {
+      "kind": "list",
+      "items": [
+        {"kind": "int", "value": "2"},
+        {"kind": "int", "value": "3"}
+      ]
+    }
+  },
+  {
+    "name": "nested field select",
+    "environment": {
+      "schemaVersion": 1,
+      "variables": {
+        "user": {
+          "type": "map",
+          "key": {"type": "string"},
+          "value": {"type": "dyn"}
+        }
+      }
+    },
+    "source": "user.profile.country == \"CN\"",
+    "variables": {"user": {"profile": {"country": "CN"}}},
+    "expected": {"kind": "bool", "value": true}
+  },
+  {
+    "name": "timestamp comparison",
+    "environment": {
+      "schemaVersion": 1,
+      "variables": {"created": {"type": "timestamp"}}
+    },
+    "source": "created > timestamp(\"2026-01-01T00:00:00Z\")",
+    "variables": {
+      "created": {
+        "$cel_bridge": true,
+        "kind": "timestamp",
+        "value": "2026-08-15T10:00:00Z"
+      }
+    },
+    "expected": {"kind": "bool", "value": true}
+  },
+  {
+    "name": "duration addition",
+    "environment": {
+      "schemaVersion": 1,
+      "variables": {"latency": {"type": "duration"}}
+    },
+    "source": "latency + duration(\"250ms\")",
+    "variables": {
+      "latency": {"$cel_bridge": true, "kind": "duration", "value": "1.5s"}
+    },
+    "expected": {"kind": "duration", "value": "1.750000000s"}
+  },
+  {
+    "name": "boolean key map",
+    "environment": {
+      "schemaVersion": 1,
+      "variables": {
+        "flags": {
+          "type": "map",
+          "key": {"type": "bool"},
+          "value": {"type": "string"}
+        }
+      }
+    },
+    "source": "flags",
+    "variables": {
+      "flags": {
+        "$cel_bridge": true,
+        "kind": "map",
+        "entries": [
+          {
+            "key": {"$cel_bridge": true, "kind": "bool", "value": true},
+            "value": {"$cel_bridge": true, "kind": "string", "value": "yes"}
+          },
+          {
+            "key": {"$cel_bridge": true, "kind": "bool", "value": false},
+            "value": {"$cel_bridge": true, "kind": "string", "value": "no"}
+          }
+        ]
+      }
+    },
+    "expected": {
+      "kind": "map",
+      "entries": [
+        {
+          "key": {"kind": "bool", "value": false},
+          "value": {"kind": "string", "value": "no"}
+        },
+        {
+          "key": {"kind": "bool", "value": true},
+          "value": {"kind": "string", "value": "yes"}
+        }
+      ]
+    }
+  },
+  {
+    "name": "int to string conversion",
+    "environment": {
+      "schemaVersion": 1,
+      "variables": {"count": {"type": "int"}}
+    },
+    "source": "string(count)",
+    "variables": {"count": 7},
+    "expected": {"kind": "string", "value": "7"}
   }
 ]

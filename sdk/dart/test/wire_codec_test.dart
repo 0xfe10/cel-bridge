@@ -178,7 +178,7 @@ void main() {
     decodeAck('{"protocolVersion":1,"ok":true,"result":{"released":true}}');
     expect(
       decodeCreatedRuntime(
-        '{"protocolVersion":1,"runtimeVersion":"0.5.0",'
+        '{"protocolVersion":1,"runtimeVersion":"$packageVersion",'
         '"celGoVersion":"v0.31.0","features":{}}',
       ).runtimeVersion,
       packageVersion,

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.1
+
+- Point default Web artifacts at the `v0.5.1` GitHub Release.
+- Update the default Wasm SRI for the 0.5.1 runtime.
+
 ## 0.5.0
 
 - `CelRuntime.validate` and `evaluate` accept optional `expectedResultType`.

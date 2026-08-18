@@ -5,7 +5,7 @@ import (
 	"github.com/0xfe10/cel-bridge/runtime/internal/runtime"
 )
 
-const version = "0.5.0"
+const version = "0.5.1"
 const celGoVersion = "v0.31.0"
 
 func Version() string {

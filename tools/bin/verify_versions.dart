@@ -85,6 +85,74 @@ Future<void> main(List<String> args) async {
     if (tag != null && tag != 'v$version') {
       throw StateError('tag $tag does not match v$version');
     }
+    _requireContains(
+      File('${root.path}/README.md'),
+      'ref: v$version',
+      'README Dart git pin',
+    );
+    _requireContains(
+      File('${root.path}/README.md'),
+      'cel-bridge = "$version"',
+      'README crates.io pin',
+    );
+    _requireContains(
+      File('${root.path}/README.md'),
+      'tag = "v$version"',
+      'README git crate pin',
+    );
+    _requireContains(
+      File('${root.path}/sdk/dart/README.md'),
+      'ref: v$version',
+      'Dart README git pin',
+    );
+    _requireContains(
+      File('${root.path}/docs/dart.md'),
+      'ref: v$version',
+      'docs/dart.md git pin',
+    );
+    _requireContains(
+      File('${root.path}/docs/rust.md'),
+      'cel-bridge = "$version"',
+      'docs/rust.md crates.io pin',
+    );
+    _requireContains(
+      File('${root.path}/docs/rust.md'),
+      'tag = "v$version"',
+      'docs/rust.md git crate pin',
+    );
+    final dartSdkVersion = File(
+      '${root.path}/sdk/dart/VERSION',
+    ).readAsStringSync().trim();
+    if (dartSdkVersion != version) {
+      throw StateError('sdk/dart/VERSION does not match VERSION');
+    }
+    final toolsVersion = _constant(
+      File('${root.path}/tools/pubspec.yaml'),
+      RegExp(r'^version:\s*(\S+)', multiLine: true),
+      'tools pubspec version',
+    );
+    if (toolsVersion != version) {
+      throw StateError('tools/pubspec.yaml version does not match VERSION');
+    }
+    final rustExampleVersion = _constant(
+      File('${root.path}/examples/rust-cli/Cargo.toml'),
+      RegExp(r'^version\s*=\s*"([^"]+)"', multiLine: true),
+      'Rust example version',
+    );
+    if (rustExampleVersion != version) {
+      throw StateError('examples/rust-cli version does not match VERSION');
+    }
+    final flutterExample = File(
+      '${root.path}/examples/flutter-app/pubspec.yaml',
+    ).readAsStringSync();
+    if (!RegExp(
+      '^version:\\s*${RegExp.escape(version)}(?:\\+\\d+)?\$',
+      multiLine: true,
+    ).hasMatch(flutterExample)) {
+      throw StateError(
+        'examples/flutter-app pubspec version does not match VERSION',
+      );
+    }
     stdout.writeln('version $version is consistent');
   } catch (error) {
     stderr.writeln('verify_versions: $error');
@@ -96,4 +164,10 @@ String _constant(File file, RegExp pattern, String name) {
   final match = pattern.firstMatch(file.readAsStringSync());
   if (match == null) throw StateError('$name is missing from ${file.path}');
   return match.group(1)!;
+}
+
+void _requireContains(File file, String needle, String name) {
+  if (!file.readAsStringSync().contains(needle)) {
+    throw StateError('$name is missing $needle in ${file.path}');
+  }
 }
