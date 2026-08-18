@@ -10,6 +10,7 @@ void main() {
       'conformance_cases.json',
       'error_cases.json',
       'type_contract_cases.json',
+      'evaluate_requests_cases.json',
     ]) {
       final file = File('../protocol/testdata/$name');
       final value = jsonDecode(file.readAsStringSync());

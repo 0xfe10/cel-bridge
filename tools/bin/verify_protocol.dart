@@ -87,11 +87,73 @@ Future<void> main(List<String> args) async {
         _value(value['expected']);
       }
     }
+    final evaluateRequests = _list(
+      jsonDecode(
+        await File(
+          '${root.path}/protocol/testdata/evaluate_requests_cases.json',
+        ).readAsString(),
+      ),
+      'evaluate requests cases',
+    );
+    if (evaluateRequests.isEmpty) {
+      throw StateError('evaluate requests cases are empty');
+    }
+    for (final item in evaluateRequests) {
+      final value = _object(item, 'evaluate requests case');
+      _string(value['name'], 'evaluateRequests.name');
+      _environment(value['environment']);
+      final requests = _list(value['requests'], 'evaluateRequests.requests');
+      if (requests.isEmpty) {
+        throw StateError('evaluateRequests.requests must not be empty');
+      }
+      final ids = <String>{};
+      for (final request in requests) {
+        final item = _object(request, 'evaluateRequests.request');
+        final id = _string(item['id'], 'evaluateRequests.request.id');
+        ids.add(id);
+        if (item.containsKey('source') && item['source'] != null) {
+          _string(item['source'], 'evaluateRequests.request.source');
+        }
+        if (item.containsKey('expectedResultType')) {
+          _expectedType(item['expectedResultType']);
+        }
+      }
+      if (value['ok'] == false) {
+        _string(value['expectedCode'], 'evaluateRequests.expectedCode');
+        continue;
+      }
+      if (value['ok'] != true) {
+        throw StateError('evaluateRequests.ok must be a boolean');
+      }
+      if (ids.length != requests.length) {
+        // Duplicate ids are allowed only as a whole-batch failure case.
+        throw StateError(
+          'evaluateRequests successful cases must use unique request ids',
+        );
+      }
+      final results = _list(value['results'], 'evaluateRequests.results');
+      if (results.length != requests.length) {
+        throw StateError('evaluateRequests.results length must match requests');
+      }
+      for (final result in results) {
+        final item = _object(result, 'evaluateRequests.result');
+        _string(item['id'], 'evaluateRequests.result.id');
+        if (item['ok'] == false) {
+          _string(item['expectedCode'], 'evaluateRequests.result.expectedCode');
+          continue;
+        }
+        if (item['ok'] != true) {
+          throw StateError('evaluateRequests.result.ok must be a boolean');
+        }
+        _value(item['expected']);
+      }
+    }
 
     stdout.writeln(
       'protocol version 1 verified: '
       '${conformance.length} conformance case(s), ${errors.length} error case(s), '
-      '${typeContract.length} type contract case(s)',
+      '${typeContract.length} type contract case(s), '
+      '${evaluateRequests.length} evaluate requests case(s)',
     );
   } catch (error) {
     stderr.writeln('verify_protocol: $error');

@@ -223,5 +223,76 @@
     "variables": {"component": true, "example": true},
     "ok": true,
     "expected": {"kind": "bool", "value": true}
+  },
+  {
+    "name": "validate timestamp result type",
+    "operation": "validate",
+    "environment": {
+      "schemaVersion": 1,
+      "variables": {"created": {"type": "timestamp"}}
+    },
+    "source": "created",
+    "valid": true,
+    "resultType": {"type": "timestamp"}
+  },
+  {
+    "name": "validate duration result type",
+    "operation": "validate",
+    "environment": {
+      "schemaVersion": 1,
+      "variables": {"latency": {"type": "duration"}}
+    },
+    "source": "latency",
+    "valid": true,
+    "resultType": {"type": "duration"}
+  },
+  {
+    "name": "validate bytes result type",
+    "operation": "validate",
+    "environment": {
+      "schemaVersion": 1,
+      "variables": {"payload": {"type": "bytes"}}
+    },
+    "source": "payload",
+    "valid": true,
+    "resultType": {"type": "bytes"}
+  },
+  {
+    "name": "validate expected string succeeds",
+    "operation": "validate",
+    "environment": {
+      "schemaVersion": 1,
+      "variables": {"name": {"type": "string"}}
+    },
+    "source": "name",
+    "expectedResultType": "string",
+    "valid": true,
+    "resultType": {"type": "string"}
+  },
+  {
+    "name": "evaluate expected string succeeds",
+    "operation": "evaluate",
+    "environment": {
+      "schemaVersion": 1,
+      "variables": {"name": {"type": "string"}}
+    },
+    "source": "name",
+    "variables": {"name": "cel"},
+    "expectedResultType": "string",
+    "ok": true,
+    "expected": {"kind": "string", "value": "cel"}
+  },
+  {
+    "name": "evaluate expected string rejects bool",
+    "operation": "evaluate",
+    "environment": {
+      "schemaVersion": 1,
+      "variables": {"enabled": {"type": "bool"}}
+    },
+    "source": "enabled",
+    "variables": {"enabled": true},
+    "expectedResultType": "string",
+    "ok": false,
+    "expectedCode": "result_type_mismatch"
   }
 ]

@@ -17,9 +17,16 @@ not implement CEL compilation or evaluation.
 - `testdata/conformance_cases.json` contains successful evaluation cases.
 - `testdata/error_cases.json` contains stable error-code cases.
 - `testdata/type_contract_cases.json` contains result-type and expected-type cases.
+- `testdata/evaluate_requests_cases.json` contains per-request batch cases.
 
-The Go and Dart test suites read the same files. `tools/bin/verify_protocol.dart`
+The Go, Dart, and Rust test suites read the same files. `tools/bin/verify_protocol.dart`
 performs the repository-level structural check used by CI.
+
+These fixtures are the generic CEL and runtime contract. Identifiers such as
+`age`, `enabled`, and `count` are uninterpreted. Product schemas, default
+values, publication snapshots, and visibility rules belong in the calling
+application. Aviary must keep its own cross-Rust/Dart business fixtures; it
+may reuse this JSON shape, but those cases do not belong in cel-bridge.
 
 ## Requests
 

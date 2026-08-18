@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.1
+
+- Align install examples and example versions with the release tag.
+- Expand shared CEL fixtures for values, macros, errors, and `evaluateRequests`.
+- Document that Aviary keeps its own cross-language business fixtures.
+
 ## 0.5.0
 
 - Validation now returns a stable `resultType`.

@@ -18,14 +18,14 @@ final result = await runtime.evaluate(
 );
 ```
 
-Pin the `v0.5.0` Git tag until the package is published:
+Pin the `v0.5.1` Git tag until the package is published:
 
 ```yaml
 dependencies:
   cel_bridge:
     git:
       url: https://github.com/0xfe10/cel-bridge.git
-      ref: v0.5.0
+      ref: v0.5.1
       path: sdk/dart
 ```
 

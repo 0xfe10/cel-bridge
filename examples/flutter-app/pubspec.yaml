@@ -1,7 +1,7 @@
 name: cel_bridge_flutter_example
 description: A cross-platform CEL workbench example.
 publish_to: 'none'
-version: 0.4.1+1
+version: 0.5.1+1
 
 environment:
   sdk: ^3.11.5

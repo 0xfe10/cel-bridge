@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.1
+
+- Point default runtime artifact downloads at the `v0.5.1` GitHub Release.
+
 ## 0.5.0
 
 - Added `RequestOptions` / `validate_with` / `evaluate_with` for `expectedResultType`.

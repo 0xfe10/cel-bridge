@@ -1,0 +1,59 @@
+[
+  {
+    "name": "independent variables keep order",
+    "environment": {
+      "schemaVersion": 1,
+      "variables": {
+        "enabled": {"type": "bool"},
+        "count": {"type": "int"}
+      }
+    },
+    "requests": [
+      {
+        "id": "condition-1",
+        "source": "enabled && count > 0",
+        "variables": {"enabled": true, "count": 2},
+        "expectedResultType": "bool"
+      },
+      {
+        "id": "condition-2",
+        "source": "count == 0",
+        "variables": {"enabled": false, "count": 0},
+        "expectedResultType": "bool"
+      }
+    ],
+    "ok": true,
+    "results": [
+      {"id": "condition-1", "ok": true, "expected": {"kind": "bool", "value": true}},
+      {"id": "condition-2", "ok": true, "expected": {"kind": "bool", "value": true}}
+    ]
+  },
+  {
+    "name": "partial failure keeps siblings",
+    "environment": {
+      "schemaVersion": 1,
+      "variables": {"age": {"type": "int"}}
+    },
+    "requests": [
+      {"id": "ok", "source": "age >= 18", "variables": {"age": 20}},
+      {"id": "bad", "source": "missing == 1", "variables": {"age": 20}},
+      {"id": "later", "source": "age >= 21", "variables": {"age": 20}}
+    ],
+    "ok": true,
+    "results": [
+      {"id": "ok", "ok": true, "expected": {"kind": "bool", "value": true}},
+      {"id": "bad", "ok": false, "expectedCode": "compile_error"},
+      {"id": "later", "ok": true, "expected": {"kind": "bool", "value": false}}
+    ]
+  },
+  {
+    "name": "duplicate ids fail the batch",
+    "environment": {"schemaVersion": 1, "variables": {}},
+    "requests": [
+      {"id": "a", "source": "true", "variables": {}},
+      {"id": "a", "source": "false", "variables": {}}
+    ],
+    "ok": false,
+    "expectedCode": "invalid_request"
+  }
+]
