@@ -6,7 +6,11 @@ import 'package:test/test.dart';
 
 void main() {
   test('shared protocol fixtures are valid JSON arrays', () {
-    for (final name in ['conformance_cases.json', 'error_cases.json']) {
+    for (final name in [
+      'conformance_cases.json',
+      'error_cases.json',
+      'type_contract_cases.json',
+    ]) {
       final file = File('../protocol/testdata/$name');
       final value = jsonDecode(file.readAsStringSync());
       expect(value, isA<List>(), reason: name);
@@ -19,6 +23,7 @@ void main() {
       'environment.schema.json',
       'response.schema.json',
       'value.schema.json',
+      'type.schema.json',
     ]) {
       final value =
           jsonDecode(File('../protocol/schema/$name').readAsStringSync())

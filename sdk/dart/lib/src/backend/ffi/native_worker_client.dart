@@ -21,12 +21,15 @@ final class NativeWorkerClient {
 
   int get spawnCount => _spawnCount;
 
+  static const maxPendingRequests = 256;
+
   Future<String> invoke(
     String operation,
     String first,
     String second,
-    String third,
-  ) async {
+    String third, [
+    String fourth = '',
+  ]) async {
     await start();
     final worker = _worker;
     final replies = _replies;
@@ -36,10 +39,24 @@ final class NativeWorkerClient {
         message: 'native CEL worker is not running',
       );
     }
+    if (_pending.length >= maxPendingRequests) {
+      throw const CelBridgeException(
+        code: 'backpressure_limit_exceeded',
+        message: 'native CEL worker pending request limit exceeded',
+      );
+    }
     final requestId = _nextRequestId++;
     final completer = Completer<String>();
     _pending[requestId] = completer;
-    worker.send([requestId, operation, first, second, third, replies.sendPort]);
+    worker.send([
+      requestId,
+      operation,
+      first,
+      second,
+      third,
+      fourth,
+      replies.sendPort,
+    ]);
     return completer.future;
   }
 

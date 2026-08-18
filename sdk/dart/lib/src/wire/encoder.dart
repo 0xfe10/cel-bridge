@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import '../cel_evaluation_request.dart';
+import '../cel_type.dart';
 import '../cel_value.dart';
 
 final _maxCelInt = BigInt.parse('9223372036854775807');
@@ -16,6 +18,42 @@ String encodeVariables(Map<String, Object?> variables) {
 }
 
 String encodeSources(List<String> sources) => jsonEncode(sources);
+
+String encodeRequestOptions({Object? expectedResultType, int? deadlineMs}) {
+  if (expectedResultType == null && deadlineMs == null) {
+    return '';
+  }
+  return jsonEncode({
+    if (expectedResultType != null)
+      'expectedResultType': expectedResultType is CelType
+          ? expectedResultType.toExpectedJson()
+          : expectedResultType,
+    'deadlineMs': ?deadlineMs,
+  });
+}
+
+String encodeCreateOptions({String? profile}) {
+  if (profile == null || profile.isEmpty) {
+    return '{}';
+  }
+  return jsonEncode({'profile': profile});
+}
+
+String encodeEvaluationRequests(List<CelEvaluationRequest> requests) {
+  return jsonEncode([
+    for (final request in requests)
+      {
+        'id': request.id,
+        if (request.source != null) 'source': request.source,
+        if (request.programId != null) 'programId': request.programId,
+        'variables': _jsonObject(request.variables, 'variables', valueDepth: 1),
+        if (request.expectedResultType != null)
+          'expectedResultType': request.expectedResultType is CelType
+              ? (request.expectedResultType as CelType).toExpectedJson()
+              : request.expectedResultType,
+      },
+  ]);
+}
 
 Object? _jsonValue(Object? value, [int depth = 0]) {
   if (depth > _maxValueDepth) {

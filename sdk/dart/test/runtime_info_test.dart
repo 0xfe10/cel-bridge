@@ -5,12 +5,15 @@ import 'package:test/test.dart';
 void main() {
   test('accepts matching runtime and protocol versions', () {
     final info = decodeRuntimeInfo(
-      '{"protocolVersion":1,"runtimeVersion":"0.4.1",'
+      '{"protocolVersion":1,"runtimeVersion":"0.5.0",'
       '"celGoVersion":"v0.31.0","features":{"costLimit":true}}',
     );
     expect(info.runtimeVersion, packageVersion);
     expect(info.protocolVersion, wireProtocolVersion);
     expect(info.features['costLimit'], isTrue);
+    expect(info.abiVersion, isNull);
+    expect(info.profiles, isEmpty);
+    expect(info.limits, isEmpty);
   });
 
   test('rejects runtime version mismatches', () {
@@ -32,7 +35,7 @@ void main() {
   test('rejects non-boolean feature flags', () {
     expect(
       () => decodeRuntimeInfo(
-        '{"protocolVersion":1,"runtimeVersion":"0.4.1",'
+        '{"protocolVersion":1,"runtimeVersion":"0.5.0",'
         '"celGoVersion":"v0.31.0","features":{"costLimit":"true"}}',
       ),
       throwsA(

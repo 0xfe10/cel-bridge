@@ -3,17 +3,40 @@ use std::ffi::{CStr, CString, c_char};
 
 unsafe extern "C" {
     fn cel_bridge_runtime_info() -> *mut c_char;
-    fn cel_bridge_validate(environment_json: *const c_char, source: *const c_char) -> *mut c_char;
-    fn cel_bridge_evaluate(
+    fn cel_bridge_validate_options(
+        environment_json: *const c_char,
+        source: *const c_char,
+        options_json: *const c_char,
+    ) -> *mut c_char;
+    fn cel_bridge_evaluate_options(
         environment_json: *const c_char,
         source: *const c_char,
         variables_json: *const c_char,
+        options_json: *const c_char,
     ) -> *mut c_char;
     fn cel_bridge_evaluate_many(
         environment_json: *const c_char,
         sources_json: *const c_char,
         variables_json: *const c_char,
     ) -> *mut c_char;
+    fn cel_bridge_evaluate_requests(
+        environment_json: *const c_char,
+        requests_json: *const c_char,
+        options_json: *const c_char,
+    ) -> *mut c_char;
+    fn cel_bridge_prepare(
+        environment_json: *const c_char,
+        source: *const c_char,
+        options_json: *const c_char,
+    ) -> *mut c_char;
+    fn cel_bridge_evaluate_program(
+        program_id: *const c_char,
+        variables_json: *const c_char,
+        options_json: *const c_char,
+    ) -> *mut c_char;
+    fn cel_bridge_release_program(program_id: *const c_char) -> *mut c_char;
+    fn cel_bridge_close() -> *mut c_char;
+    fn cel_bridge_create(options_json: *const c_char) -> *mut c_char;
     fn cel_bridge_free(value: *mut c_char);
 }
 
@@ -58,22 +81,37 @@ pub fn runtime_info() -> Result<String, CelBridgeError> {
     NativeString(unsafe { cel_bridge_runtime_info() }).text()
 }
 
-pub fn validate(environment: &str, source: &str) -> Result<String, CelBridgeError> {
+pub fn validate_options(
+    environment: &str,
+    source: &str,
+    options: &str,
+) -> Result<String, CelBridgeError> {
     let environment = input(environment)?;
     let source = input(source)?;
-    NativeString(unsafe { cel_bridge_validate(environment.as_ptr(), source.as_ptr()) }).text()
+    let options = input(options)?;
+    NativeString(unsafe {
+        cel_bridge_validate_options(environment.as_ptr(), source.as_ptr(), options.as_ptr())
+    })
+    .text()
 }
 
-pub fn evaluate(
+pub fn evaluate_options(
     environment: &str,
     source: &str,
     variables: &str,
+    options: &str,
 ) -> Result<String, CelBridgeError> {
     let environment = input(environment)?;
     let source = input(source)?;
     let variables = input(variables)?;
+    let options = input(options)?;
     NativeString(unsafe {
-        cel_bridge_evaluate(environment.as_ptr(), source.as_ptr(), variables.as_ptr())
+        cel_bridge_evaluate_options(
+            environment.as_ptr(),
+            source.as_ptr(),
+            variables.as_ptr(),
+            options.as_ptr(),
+        )
     })
     .text()
 }
@@ -90,4 +128,56 @@ pub fn evaluate_many(
         cel_bridge_evaluate_many(environment.as_ptr(), sources.as_ptr(), variables.as_ptr())
     })
     .text()
+}
+
+pub fn evaluate_requests(
+    environment: &str,
+    requests: &str,
+    options: &str,
+) -> Result<String, CelBridgeError> {
+    let environment = input(environment)?;
+    let requests = input(requests)?;
+    let options = input(options)?;
+    NativeString(unsafe {
+        cel_bridge_evaluate_requests(environment.as_ptr(), requests.as_ptr(), options.as_ptr())
+    })
+    .text()
+}
+
+pub fn prepare(environment: &str, source: &str, options: &str) -> Result<String, CelBridgeError> {
+    let environment = input(environment)?;
+    let source = input(source)?;
+    let options = input(options)?;
+    NativeString(unsafe {
+        cel_bridge_prepare(environment.as_ptr(), source.as_ptr(), options.as_ptr())
+    })
+    .text()
+}
+
+pub fn evaluate_program(
+    program_id: &str,
+    variables: &str,
+    options: &str,
+) -> Result<String, CelBridgeError> {
+    let program_id = input(program_id)?;
+    let variables = input(variables)?;
+    let options = input(options)?;
+    NativeString(unsafe {
+        cel_bridge_evaluate_program(program_id.as_ptr(), variables.as_ptr(), options.as_ptr())
+    })
+    .text()
+}
+
+pub fn release_program(program_id: &str) -> Result<String, CelBridgeError> {
+    let program_id = input(program_id)?;
+    NativeString(unsafe { cel_bridge_release_program(program_id.as_ptr()) }).text()
+}
+
+pub fn close() -> Result<String, CelBridgeError> {
+    NativeString(unsafe { cel_bridge_close() }).text()
+}
+
+pub fn create(options: &str) -> Result<String, CelBridgeError> {
+    let options = input(options)?;
+    NativeString(unsafe { cel_bridge_create(options.as_ptr()) }).text()
 }

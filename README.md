@@ -5,7 +5,7 @@ cel-bridge provides cross-platform CEL evaluation through one Go
 SDKs share the same C ABI and JSON protocol; neither SDK reimplements CEL
 semantics.
 
-The current source version is `0.4.1`, and the wire `protocolVersion` is `1`.
+The current source version is `0.5.0`, and the wire `protocolVersion` is `1`.
 
 ## At a glance
 
@@ -14,6 +14,8 @@ The current source version is `0.4.1`, and the wire `protocolVersion` is `1`.
 - Dart and Flutter support for desktop, mobile, and Web;
 - Rust support for desktop and mobile;
 - batch evaluation through `evaluateMany` / `evaluate_many`;
+- per-request batch evaluation through `evaluateRequests` / `evaluate_requests`;
+- prepared programs, wall-clock deadlines, and runtime profiles;
 - fixed, checksummed native artifacts by default;
 - optional local source builds for repository and controlled-environment use;
 - shared conformance cases across Go, Dart, and Rust.
@@ -33,7 +35,7 @@ The current source version is `0.4.1`, and the wire `protocolVersion` is `1`.
 | Dart / Flutter | Linux x86_64/AArch64, macOS x86_64/arm64, Windows x86_64, Android arm64-v8a/armeabi-v7a/x86_64, iOS device/simulator, Web |
 | Rust | Linux x86_64/AArch64, macOS x86_64/arm64, Windows x86_64, Android arm64-v8a/armeabi-v7a/x86_64, iOS device/simulator |
 
-Windows ARM64 and Rust Web/Wasm are not provided in `v0.4.1`. The Rust crate
+Windows ARM64 and Rust Web/Wasm are not provided in `v0.5.0`. The Rust crate
 uses `std`; `no_std` is not supported.
 
 ## Native runtime selection

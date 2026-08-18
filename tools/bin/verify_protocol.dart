@@ -9,6 +9,7 @@ Future<void> main(List<String> args) async {
       'environment.schema.json',
       'response.schema.json',
       'value.schema.json',
+      'type.schema.json',
     ]) {
       final schema = _object(
         jsonDecode(await File('${schemaRoot.path}/$name').readAsString()),
@@ -58,9 +59,39 @@ Future<void> main(List<String> args) async {
       _string(value['expectedCode'], 'error.expectedCode');
       _environment(value['environment']);
     }
+    final typeContract = _list(
+      jsonDecode(
+        await File(
+          '${root.path}/protocol/testdata/type_contract_cases.json',
+        ).readAsString(),
+      ),
+      'type contract cases',
+    );
+    if (typeContract.isEmpty) throw StateError('type contract cases are empty');
+    for (final item in typeContract) {
+      final value = _object(item, 'type contract case');
+      _string(value['name'], 'typeContract.name');
+      _string(value['source'], 'typeContract.source');
+      final operation = _string(value['operation'], 'typeContract.operation');
+      if (operation != 'validate' && operation != 'evaluate') {
+        throw StateError('unsupported type contract operation $operation');
+      }
+      _environment(value['environment']);
+      if (value.containsKey('expectedResultType')) {
+        _expectedType(value['expectedResultType']);
+      }
+      if (value.containsKey('resultType')) {
+        _type(value['resultType']);
+      }
+      if (value.containsKey('expected')) {
+        _value(value['expected']);
+      }
+    }
+
     stdout.writeln(
       'protocol version 1 verified: '
-      '${conformance.length} conformance case(s), ${errors.length} error case(s)',
+      '${conformance.length} conformance case(s), ${errors.length} error case(s), '
+      '${typeContract.length} type contract case(s)',
     );
   } catch (error) {
     stderr.writeln('verify_protocol: $error');
@@ -119,6 +150,14 @@ void _environment(Object? raw) {
     _string(entry.key, 'environment variable name');
     _type(entry.value);
   }
+}
+
+void _expectedType(Object? raw) {
+  if (raw is String) {
+    _type({'type': raw});
+    return;
+  }
+  _type(raw);
 }
 
 void _type(Object? raw) {

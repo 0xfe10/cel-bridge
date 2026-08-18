@@ -38,13 +38,18 @@ external JSPromise<JSAny> instantiate(
 external JSString celBridgeRuntimeInfo();
 
 @JS('celBridgeValidate')
-external JSString celBridgeValidate(JSString environmentJson, JSString source);
+external JSString celBridgeValidate(
+  JSString environmentJson,
+  JSString source,
+  JSString optionsJson,
+);
 
 @JS('celBridgeEvaluate')
 external JSString celBridgeEvaluate(
   JSString environmentJson,
   JSString source,
   JSString variablesJson,
+  JSString optionsJson,
 );
 
 @JS('celBridgeEvaluateMany')
@@ -56,19 +61,29 @@ external JSString celBridgeEvaluateMany(
 
 String celBridgeRuntimeInfoJS() => celBridgeRuntimeInfo().toDart;
 
-String celBridgeValidateJS(String environmentJson, String source) {
-  return celBridgeValidate(environmentJson.toJS, source.toJS).toDart;
+String celBridgeValidateJS(
+  String environmentJson,
+  String source, [
+  String optionsJson = '',
+]) {
+  return celBridgeValidate(
+    environmentJson.toJS,
+    source.toJS,
+    optionsJson.toJS,
+  ).toDart;
 }
 
 String celBridgeEvaluateJS(
   String environmentJson,
   String source,
-  String variablesJson,
-) {
+  String variablesJson, [
+  String optionsJson = '',
+]) {
   return celBridgeEvaluate(
     environmentJson.toJS,
     source.toJS,
     variablesJson.toJS,
+    optionsJson.toJS,
   ).toDart;
 }
 
@@ -82,4 +97,80 @@ String celBridgeEvaluateManyJS(
     sourcesJson.toJS,
     variablesJson.toJS,
   ).toDart;
+}
+
+@JS('celBridgeEvaluateRequests')
+external JSString celBridgeEvaluateRequests(
+  JSString environmentJson,
+  JSString requestsJson,
+  JSString optionsJson,
+);
+
+@JS('celBridgePrepare')
+external JSString celBridgePrepare(
+  JSString environmentJson,
+  JSString source,
+  JSString optionsJson,
+);
+
+@JS('celBridgeEvaluateProgram')
+external JSString celBridgeEvaluateProgram(
+  JSString programId,
+  JSString variablesJson,
+  JSString optionsJson,
+);
+
+@JS('celBridgeReleaseProgram')
+external JSString celBridgeReleaseProgram(JSString programId);
+
+@JS('celBridgeClose')
+external JSString celBridgeClose();
+
+@JS('celBridgeCreate')
+external JSString celBridgeCreate(JSString optionsJson);
+
+String celBridgeEvaluateRequestsJS(
+  String environmentJson,
+  String requestsJson, [
+  String optionsJson = '',
+]) {
+  return celBridgeEvaluateRequests(
+    environmentJson.toJS,
+    requestsJson.toJS,
+    optionsJson.toJS,
+  ).toDart;
+}
+
+String celBridgePrepareJS(
+  String environmentJson,
+  String source, [
+  String optionsJson = '',
+]) {
+  return celBridgePrepare(
+    environmentJson.toJS,
+    source.toJS,
+    optionsJson.toJS,
+  ).toDart;
+}
+
+String celBridgeEvaluateProgramJS(
+  String programId,
+  String variablesJson, [
+  String optionsJson = '',
+]) {
+  return celBridgeEvaluateProgram(
+    programId.toJS,
+    variablesJson.toJS,
+    optionsJson.toJS,
+  ).toDart;
+}
+
+String celBridgeReleaseProgramJS(String programId) {
+  return celBridgeReleaseProgram(programId.toJS).toDart;
+}
+
+String celBridgeCloseJS() => celBridgeClose().toDart;
+
+String celBridgeCreateJS([String optionsJson = '']) {
+  return celBridgeCreate(optionsJson.toJS).toDart;
 }

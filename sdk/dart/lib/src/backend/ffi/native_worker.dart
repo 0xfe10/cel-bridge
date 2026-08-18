@@ -5,8 +5,15 @@ Future<String> invokeNative(
   String first = '',
   String second = '',
   String third = '',
+  String fourth = '',
 ]) {
-  return NativeWorkerClient.instance.invoke(operation, first, second, third);
+  return NativeWorkerClient.instance.invoke(
+    operation,
+    first,
+    second,
+    third,
+    fourth,
+  );
 }
 
 Future<void> closeNativeWorkerForTesting() {

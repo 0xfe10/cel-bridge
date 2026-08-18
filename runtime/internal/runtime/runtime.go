@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"unicode/utf8"
 
@@ -12,33 +13,85 @@ import (
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/interpreter"
 
+	"github.com/0xfe10/cel-bridge/runtime/internal/celtype"
 	"github.com/0xfe10/cel-bridge/runtime/internal/environment"
 	"github.com/0xfe10/cel-bridge/runtime/internal/protocol"
 )
 
 type Runtime struct {
 	limits       Limits
+	profile      string
 	programs     *programCache
 	environments *environmentCache
+	prepared     *preparedStore
+	flight       *compileFlight
 	compiles     atomic.Int64
+	closed       atomic.Bool
+	inflight     sync.WaitGroup
 }
 
 func New(limits Limits) *Runtime {
+	return NewProfile(ProfileDefault, limits)
+}
+
+func NewProfile(profile string, limits Limits) *Runtime {
+	if profile == "" {
+		profile = ProfileDefault
+	}
 	return &Runtime{
 		limits:       limits,
+		profile:      profile,
 		programs:     newProgramCache(limits.MaxCompiledPrograms),
 		environments: newEnvironmentCache(limits.MaxCachedEnvironments),
+		prepared:     newPreparedStore(limits.MaxPreparedPrograms),
+		flight:       newCompileFlight(),
 	}
 }
 
-func (r *Runtime) Validate(environmentJSON, source string) (response protocol.Response) {
+func (r *Runtime) begin() (protocol.Response, bool) {
+	if r.closed.Load() {
+		return protocol.Failure("runtime_closed", "runtime has been disposed"), false
+	}
+	r.inflight.Add(1)
+	if r.closed.Load() {
+		r.inflight.Done()
+		return protocol.Failure("runtime_closed", "runtime has been disposed"), false
+	}
+	return protocol.Response{}, true
+}
+
+func (r *Runtime) end() {
+	r.inflight.Done()
+}
+
+func (r *Runtime) Closed() bool {
+	return r.closed.Load()
+}
+
+func (r *Runtime) Profile() string {
+	return r.profile
+}
+
+func (r *Runtime) Limits() Limits {
+	return r.limits
+}
+
+func (r *Runtime) Validate(environmentJSON, source string, optionsJSON ...string) (response protocol.Response) {
 	defer func() {
 		if recover() != nil {
 			response = protocol.Failure("internal_error", "runtime panic recovered")
 		}
 	}()
+	if fail, ok := r.begin(); !ok {
+		return fail
+	}
+	defer r.end()
 	if err := r.validateSource(source); err != nil {
 		return protocol.Failure(errorCode(err), err.Error())
+	}
+	options, err := celtype.ParseOptions(firstOption(optionsJSON))
+	if err != nil {
+		return protocol.Failure("invalid_request", err.Error())
 	}
 	environmentValue, err := r.decodeEnvironment(environmentJSON)
 	if err != nil {
@@ -48,47 +101,98 @@ func (r *Runtime) Validate(environmentJSON, source string) (response protocol.Re
 	if err != nil {
 		return protocol.Failure("invalid_environment", err.Error())
 	}
-	_, issues := celEnvironment.Compile(source)
+	ast, issues := celEnvironment.Parse(source)
 	if issues.Err() != nil {
 		return protocol.Success(protocol.ValidationResult{
 			Valid:  false,
 			Issues: convertIssues(issues, r.limits.MaxIssues),
 		})
 	}
-	return protocol.Success(protocol.ValidationResult{Valid: true, Issues: []protocol.Issue{}})
+	ast, issues = celEnvironment.Check(ast)
+	if issues.Err() != nil {
+		return protocol.Success(protocol.ValidationResult{
+			Valid:  false,
+			Issues: convertIssues(issues, r.limits.MaxIssues),
+		})
+	}
+	resultType := celtype.FromCEL(ast.OutputType())
+	ref := resultType.ToRef()
+	if options.Expected != nil {
+		ok, _ := celtype.Compatible(resultType, *options.Expected)
+		if !ok {
+			return protocol.Success(protocol.ValidationResult{
+				Valid:      false,
+				ResultType: &ref,
+				Issues: []protocol.Issue{{
+					Severity: "error",
+					Code:     "result_type_mismatch",
+					Message:  celtype.StaticMismatchMessage(options.Expected.Format(), resultType.Format()),
+				}},
+			})
+		}
+	}
+	return protocol.Success(protocol.ValidationResult{
+		Valid:      true,
+		ResultType: &ref,
+		Issues:     []protocol.Issue{},
+	})
 }
 
-func (r *Runtime) Evaluate(environmentJSON, source, variablesJSON string) (response protocol.Response) {
+func (r *Runtime) Evaluate(environmentJSON, source, variablesJSON string, optionsJSON ...string) (response protocol.Response) {
 	defer func() {
 		if recover() != nil {
 			response = protocol.Failure("internal_error", "runtime panic recovered")
 		}
 	}()
+	if fail, ok := r.begin(); !ok {
+		return fail
+	}
+	defer r.end()
+	options, err := celtype.ParseOptions(firstOption(optionsJSON))
+	if err != nil {
+		return protocol.Failure("invalid_request", err.Error())
+	}
+	if options.Deadline().Exceeded() {
+		return protocol.Failure("deadline_exceeded", "evaluation deadline exceeded")
+	}
+	return r.evaluateInternal(environmentJSON, source, variablesJSON, options)
+}
+
+func (r *Runtime) evaluateInternal(environmentJSON, source, variablesJSON string, options celtype.Options) protocol.Response {
 	if err := r.validateSource(source); err != nil {
 		return protocol.Failure(errorCode(err), err.Error())
-	}
-	key := makeProgramKey(environmentJSON, source)
-	if program, ok := r.programs.Get(key); ok {
-		variables, err := r.decodeVariables(variablesJSON)
-		if err != nil {
-			return variableError(err, len(variablesJSON), r.limits.MaxVariablesBytes)
-		}
-		return r.evalProgram(program, variables)
 	}
 	celEnvironment, fail, ok := r.envFor(environmentJSON)
 	if !ok {
 		return fail
 	}
+	if options.Expected != nil {
+		ast, issues := celEnvironment.Parse(source)
+		if issues.Err() != nil {
+			return protocol.Failure("parse_error", issues.String(), convertIssues(issues, r.limits.MaxIssues)...)
+		}
+		ast, issues = celEnvironment.Check(ast)
+		if issues.Err() != nil {
+			return protocol.Failure("compile_error", issues.String(), convertIssues(issues, r.limits.MaxIssues)...)
+		}
+		resultType := celtype.FromCEL(ast.OutputType())
+		compatible, _ := celtype.Compatible(resultType, *options.Expected)
+		if !compatible {
+			return protocol.Failure(
+				"result_type_mismatch",
+				celtype.StaticMismatchMessage(options.Expected.Format(), resultType.Format()),
+			)
+		}
+	}
 	variables, err := r.decodeVariables(variablesJSON)
 	if err != nil {
 		return variableError(err, len(variablesJSON), r.limits.MaxVariablesBytes)
 	}
-	program, fail, ok := r.compileWithEnv(celEnvironment, source)
+	program, fail, ok := r.getOrCompile(celEnvironment, environmentJSON, source)
 	if !ok {
 		return fail
 	}
-	r.programs.Put(key, program)
-	return r.evalProgram(program, variables)
+	return r.evalProgram(program, variables, options.Expected)
 }
 
 func (r *Runtime) EvaluateMany(environmentJSON, sourcesJSON, variablesJSON string) (response protocol.Response) {
@@ -97,6 +201,10 @@ func (r *Runtime) EvaluateMany(environmentJSON, sourcesJSON, variablesJSON strin
 			response = protocol.Failure("internal_error", "runtime panic recovered")
 		}
 	}()
+	if fail, ok := r.begin(); !ok {
+		return fail
+	}
+	defer r.end()
 	sources, err := r.decodeSources(sourcesJSON)
 	if err != nil {
 		return protocol.Failure("invalid_request", err.Error())
@@ -114,7 +222,7 @@ func (r *Runtime) EvaluateMany(environmentJSON, sourcesJSON, variablesJSON strin
 		return variableError(err, len(variablesJSON), r.limits.MaxVariablesBytes)
 	}
 	for _, source := range sources {
-		items = append(items, r.evaluatePrepared(celEnvironment, environmentJSON, source, variables))
+		items = append(items, r.evaluatePrepared(celEnvironment, environmentJSON, source, variables, nil))
 	}
 	return protocol.Success(&items)
 }
@@ -123,20 +231,33 @@ func (r *Runtime) evaluatePrepared(
 	celEnvironment *cel.Env,
 	environmentJSON, source string,
 	variables map[string]any,
+	expected *environment.TypeSpec,
 ) protocol.Response {
 	if err := r.validateSource(source); err != nil {
 		return protocol.Failure(errorCode(err), err.Error())
 	}
-	key := makeProgramKey(environmentJSON, source)
-	if program, ok := r.programs.Get(key); ok {
-		return r.evalProgram(program, variables)
-	}
-	program, fail, ok := r.compileWithEnv(celEnvironment, source)
+	program, fail, ok := r.getOrCompile(celEnvironment, environmentJSON, source)
 	if !ok {
 		return fail
 	}
-	r.programs.Put(key, program)
-	return r.evalProgram(program, variables)
+	return r.evalProgram(program, variables, expected)
+}
+
+func (r *Runtime) getOrCompile(celEnvironment *cel.Env, environmentJSON, source string) (cel.Program, protocol.Response, bool) {
+	key := makeProgramKey(environmentJSON, source)
+	if program, ok := r.programs.Get(key); ok {
+		return program, protocol.Response{}, true
+	}
+	return r.flight.Do(key, func() (cel.Program, protocol.Response, bool) {
+		if program, ok := r.programs.Get(key); ok {
+			return program, protocol.Response{}, true
+		}
+		program, fail, ok := r.compileWithEnv(celEnvironment, source)
+		if ok {
+			r.programs.Put(key, program)
+		}
+		return program, fail, ok
+	})
 }
 
 func (r *Runtime) envFor(environmentJSON string) (*cel.Env, protocol.Response, bool) {
@@ -157,7 +278,11 @@ func (r *Runtime) envFor(environmentJSON string) (*cel.Env, protocol.Response, b
 }
 
 func (r *Runtime) compileWithEnv(celEnvironment *cel.Env, source string) (cel.Program, protocol.Response, bool) {
-	ast, issues := celEnvironment.Compile(source)
+	ast, issues := celEnvironment.Parse(source)
+	if issues.Err() != nil {
+		return nil, protocol.Failure("parse_error", issues.String(), convertIssues(issues, r.limits.MaxIssues)...), false
+	}
+	ast, issues = celEnvironment.Check(ast)
 	if issues.Err() != nil {
 		return nil, protocol.Failure("compile_error", issues.String(), convertIssues(issues, r.limits.MaxIssues)...), false
 	}
@@ -169,24 +294,41 @@ func (r *Runtime) compileWithEnv(celEnvironment *cel.Env, source string) (cel.Pr
 	return program, protocol.Response{}, true
 }
 
-func (r *Runtime) evalProgram(program cel.Program, variables map[string]any) protocol.Response {
-	value, _, evalErr := program.Eval(variables)
+func (r *Runtime) evalProgram(
+	program cel.Program,
+	variables map[string]any,
+	expected *environment.TypeSpec,
+) protocol.Response {
+	activation := &trackingActivation{vars: variables}
+	value, _, evalErr := program.Eval(activation)
 	if evalErr != nil {
 		if isCostLimitError(evalErr) {
 			return protocol.Failure("cost_limit_exceeded", "CEL evaluation cost limit exceeded")
+		}
+		if len(activation.missing) > 0 {
+			return protocol.Failure("missing_variable", "missing variable "+activation.missing[0])
 		}
 		return protocol.Failure("evaluation_error", safeErrorMessage(evalErr))
 	}
 	if types.IsError(value) {
 		celError := value.(error)
-		if strings.Contains(celError.Error(), "actual cost limit exceeded") {
+		if isCostLimitError(celError) || strings.Contains(celError.Error(), "actual cost limit exceeded") {
 			return protocol.Failure("cost_limit_exceeded", "CEL evaluation cost limit exceeded")
+		}
+		if len(activation.missing) > 0 {
+			return protocol.Failure("missing_variable", "missing variable "+activation.missing[0])
 		}
 		return protocol.Failure("evaluation_error", safeErrorMessage(celError))
 	}
 	encoded, err := protocol.EncodeValue(value)
 	if err != nil {
 		return protocol.Failure("unsupported_value", err.Error())
+	}
+	if expected != nil && !celtype.MatchesValue(*expected, encoded) {
+		return protocol.Failure(
+			"result_type_mismatch",
+			celtype.MismatchMessage(expected.Format(), encoded.Kind),
+		)
 	}
 	return protocol.Success(encoded)
 }
@@ -251,6 +393,13 @@ func (r *Runtime) decodeSources(raw string) ([]string, error) {
 	return sources, nil
 }
 
+func firstOption(options []string) string {
+	if len(options) == 0 {
+		return ""
+	}
+	return options[0]
+}
+
 func (r *Runtime) validateSource(source string) error {
 	if len(source) > r.limits.MaxSourceBytes {
 		return fmt.Errorf("source exceeds %d bytes", r.limits.MaxSourceBytes)
@@ -300,12 +449,15 @@ func convertIssues(issues *cel.Issues, maxIssues int) []protocol.Issue {
 }
 
 func classifyIssue(message string) string {
+	lower := strings.ToLower(message)
 	switch {
-	case strings.Contains(message, "undeclared reference"):
+	case strings.Contains(lower, "undeclared reference"):
 		return "undeclared_reference"
-	case strings.Contains(message, "Syntax error"), strings.Contains(message, "syntax error"):
+	case strings.Contains(lower, "syntax error"):
 		return "parse_error"
-	case strings.Contains(message, "type-check"), strings.Contains(message, "found no matching overload"):
+	case strings.Contains(lower, "found no matching overload"),
+		strings.Contains(lower, "no matching overload"),
+		strings.Contains(lower, "type-check error"):
 		return "type_error"
 	default:
 		return "compile_error"

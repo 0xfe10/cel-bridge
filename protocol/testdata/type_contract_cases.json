@@ -1,0 +1,227 @@
+[
+  {
+    "name": "validate bool result type",
+    "operation": "validate",
+    "environment": {
+      "schemaVersion": 1,
+      "variables": {
+        "enabled": {"type": "bool"},
+        "count": {"type": "int"}
+      }
+    },
+    "source": "enabled && count > 0",
+    "valid": true,
+    "resultType": {"type": "bool"}
+  },
+  {
+    "name": "validate int result type",
+    "operation": "validate",
+    "environment": {
+      "schemaVersion": 1,
+      "variables": {"count": {"type": "int"}}
+    },
+    "source": "count",
+    "valid": true,
+    "resultType": {"type": "int"}
+  },
+  {
+    "name": "validate null literal type",
+    "operation": "validate",
+    "environment": {"schemaVersion": 1, "variables": {}},
+    "source": "null",
+    "valid": true,
+    "resultType": {"type": "null"}
+  },
+  {
+    "name": "validate list result type",
+    "operation": "validate",
+    "environment": {
+      "schemaVersion": 1,
+      "variables": {
+        "items": {"type": "list", "element": {"type": "int"}}
+      }
+    },
+    "source": "items",
+    "valid": true,
+    "resultType": {"type": "list", "element": {"type": "int"}}
+  },
+  {
+    "name": "validate map result type",
+    "operation": "validate",
+    "environment": {
+      "schemaVersion": 1,
+      "variables": {
+        "attrs": {
+          "type": "map",
+          "key": {"type": "string"},
+          "value": {"type": "dyn"}
+        }
+      }
+    },
+    "source": "attrs",
+    "valid": true,
+    "resultType": {
+      "type": "map",
+      "key": {"type": "string"},
+      "value": {"type": "dyn"}
+    }
+  },
+  {
+    "name": "validate dyn result type",
+    "operation": "validate",
+    "environment": {
+      "schemaVersion": 1,
+      "variables": {"value": {"type": "dyn"}}
+    },
+    "source": "value",
+    "valid": true,
+    "resultType": {"type": "dyn"}
+  },
+  {
+    "name": "validate expected bool succeeds",
+    "operation": "validate",
+    "environment": {
+      "schemaVersion": 1,
+      "variables": {"enabled": {"type": "bool"}}
+    },
+    "source": "enabled",
+    "expectedResultType": "bool",
+    "valid": true,
+    "resultType": {"type": "bool"}
+  },
+  {
+    "name": "validate expected bool rejects int",
+    "operation": "validate",
+    "environment": {
+      "schemaVersion": 1,
+      "variables": {"count": {"type": "int"}}
+    },
+    "source": "count",
+    "expectedResultType": "bool",
+    "valid": false,
+    "resultType": {"type": "int"},
+    "expectedCode": "result_type_mismatch"
+  },
+  {
+    "name": "validate expected list type object",
+    "operation": "validate",
+    "environment": {
+      "schemaVersion": 1,
+      "variables": {
+        "items": {"type": "list", "element": {"type": "int"}}
+      }
+    },
+    "source": "items",
+    "expectedResultType": {"type": "list", "element": {"type": "int"}},
+    "valid": true,
+    "resultType": {"type": "list", "element": {"type": "int"}}
+  },
+  {
+    "name": "evaluate expected bool succeeds",
+    "operation": "evaluate",
+    "environment": {
+      "schemaVersion": 1,
+      "variables": {"enabled": {"type": "bool"}}
+    },
+    "source": "enabled",
+    "variables": {"enabled": true},
+    "expectedResultType": "bool",
+    "ok": true,
+    "expected": {"kind": "bool", "value": true}
+  },
+  {
+    "name": "dyn runtime type mismatch is not coerced",
+    "operation": "evaluate",
+    "environment": {
+      "schemaVersion": 1,
+      "variables": {"value": {"type": "dyn"}}
+    },
+    "source": "value",
+    "variables": {"value": "yes"},
+    "expectedResultType": "bool",
+    "ok": false,
+    "expectedCode": "result_type_mismatch"
+  },
+  {
+    "name": "static type mismatch fails before evaluation",
+    "operation": "evaluate",
+    "environment": {
+      "schemaVersion": 1,
+      "variables": {"count": {"type": "int"}}
+    },
+    "source": "count",
+    "variables": {"count": 1},
+    "expectedResultType": "bool",
+    "ok": false,
+    "expectedCode": "result_type_mismatch"
+  },
+  {
+    "name": "null value is not a missing variable",
+    "operation": "evaluate",
+    "environment": {
+      "schemaVersion": 1,
+      "variables": {"value": {"type": "dyn"}}
+    },
+    "source": "value == null",
+    "variables": {"value": null},
+    "ok": true,
+    "expected": {"kind": "bool", "value": true}
+  },
+  {
+    "name": "missing variable is not injected as null",
+    "operation": "evaluate",
+    "environment": {
+      "schemaVersion": 1,
+      "variables": {"value": {"type": "int"}}
+    },
+    "source": "value",
+    "variables": {},
+    "ok": false,
+    "expectedCode": "missing_variable"
+  },
+  {
+    "name": "session name behaves like foo",
+    "operation": "evaluate",
+    "environment": {
+      "schemaVersion": 1,
+      "variables": {
+        "session": {"type": "int"},
+        "foo": {"type": "int"}
+      }
+    },
+    "source": "session + 1",
+    "variables": {"session": 1, "foo": 1},
+    "ok": true,
+    "expected": {"kind": "int", "value": "2"}
+  },
+  {
+    "name": "tenant name behaves like bar",
+    "operation": "evaluate",
+    "environment": {
+      "schemaVersion": 1,
+      "variables": {
+        "tenant": {"type": "string"},
+        "bar": {"type": "string"}
+      }
+    },
+    "source": "tenant == \"acme\"",
+    "variables": {"tenant": "acme", "bar": "acme"},
+    "ok": true,
+    "expected": {"kind": "bool", "value": true}
+  },
+  {
+    "name": "component name behaves like example",
+    "operation": "evaluate",
+    "environment": {
+      "schemaVersion": 1,
+      "variables": {
+        "component": {"type": "bool"},
+        "example": {"type": "bool"}
+      }
+    },
+    "source": "component",
+    "variables": {"component": true, "example": true},
+    "ok": true,
+    "expected": {"kind": "bool", "value": true}
+  }
+]

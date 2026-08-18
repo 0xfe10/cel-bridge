@@ -38,7 +38,7 @@
     "source": "age +",
     "variables": {"age": 20},
     "operation": "evaluate",
-    "expectedCode": "compile_error"
+    "expectedCode": "parse_error"
   },
   {
     "name": "evaluation error",
@@ -50,5 +50,16 @@
     "variables": {"age": 20},
     "operation": "evaluate",
     "expectedCode": "evaluation_error"
+  },
+  {
+    "name": "missing variable at evaluation",
+    "environment": {
+      "schemaVersion": 1,
+      "variables": {"age": {"type": "int"}}
+    },
+    "source": "age >= 18",
+    "variables": {},
+    "operation": "evaluate",
+    "expectedCode": "missing_variable"
   }
 ]

@@ -1,7 +1,12 @@
 import 'cel_issue.dart';
+import 'cel_type.dart';
 
 final class CelValidationResult {
-  const CelValidationResult({required this.valid, required this.issues});
+  const CelValidationResult({
+    required this.valid,
+    required this.issues,
+    this.resultType,
+  });
 
   factory CelValidationResult.fromJson(Object? json) {
     final value = _object(json, 'validation result');
@@ -11,11 +16,15 @@ final class CelValidationResult {
     }
     return CelValidationResult(
       valid: _bool(value['valid'], 'validation result.valid'),
+      resultType: value['resultType'] == null
+          ? null
+          : CelType.fromJson(value['resultType']),
       issues: [for (final issue in rawIssues) CelIssue.fromJson(issue)],
     );
   }
 
   final bool valid;
+  final CelType? resultType;
   final List<CelIssue> issues;
 }
 

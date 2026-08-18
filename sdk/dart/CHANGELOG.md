@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.0
+
+- `CelRuntime.validate` and `evaluate` accept optional `expectedResultType`.
+- `CelValidationResult.resultType` reports the static CEL type.
+- Added `evaluateRequests`, `prepare`, `evaluateProgram`, `releaseProgram`, and `dispose`.
+- Native worker pending requests are limited to 256 (`backpressure_limit_exceeded`).
+
 ## 0.4.1
 
 - Point default Web artifacts at the `v0.4.1` GitHub Release.

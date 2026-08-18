@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.5.0
+
+- Validation now returns a stable `resultType`.
+- Added optional `expectedResultType` for validate and evaluate.
+- Added `result_type_mismatch` without coercing or defaulting values.
+- Generic variable names are uninterpreted; Aviary scopes stay outside the runtime.
+- Added per-request `evaluateRequests` / `EvaluateRequests` with independent variables.
+- Added prepared programs: `prepare`, `evaluateProgram`, and `releaseProgram`.
+- Added wall-clock `deadlineMs`, runtime profiles, compile singleflight, and `Close`/`Create`.
+- ABI version is `4`. Length-delimited `cel_bridge_call_v2` is available; NUL-terminated symbols remain.
+- Added stable codes `parse_error`, `missing_variable`, `deadline_exceeded`, `program_not_found`, `program_limit_exceeded`, `runtime_closed`, and `backpressure_limit_exceeded`.
+
 ## 0.4.1
 
 - Publish the GitHub Release as soon as artifacts are ready. Post-publish
