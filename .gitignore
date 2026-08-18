@@ -7,6 +7,8 @@ build/
 target/
 coverage/
 pubspec.lock
+Cargo.lock
+!sdk/rust/Cargo.lock
 
 *.so
 *.dylib
