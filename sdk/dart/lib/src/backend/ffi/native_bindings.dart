@@ -35,6 +35,16 @@ external Pointer<Utf8> celBridgeEvaluate(
   Pointer<Utf8> variablesJson,
 );
 
+@Native<Pointer<Utf8> Function(Pointer<Utf8>, Pointer<Utf8>, Pointer<Utf8>)>(
+  symbol: 'cel_bridge_evaluate_many',
+  assetId: nativeAssetId,
+)
+external Pointer<Utf8> celBridgeEvaluateMany(
+  Pointer<Utf8> environmentJson,
+  Pointer<Utf8> sourcesJson,
+  Pointer<Utf8> variablesJson,
+);
+
 @Native<Void Function(Pointer<Utf8>)>(
   symbol: 'cel_bridge_free',
   assetId: nativeAssetId,

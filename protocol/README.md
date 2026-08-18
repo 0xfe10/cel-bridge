@@ -23,7 +23,29 @@ performs the repository-level structural check used by CI.
 
 The native and Wasm APIs accept UTF-8 JSON strings. A validation request needs
 an environment and CEL source. An evaluation request additionally needs a JSON
-object containing variables.
+object containing variables. Batch evaluation accepts a JSON array of source
+strings with one shared environment and one shared variables object.
+
+`cel_bridge_evaluate` remains the single-expression ABI. `cel_bridge_evaluate_many`
+evaluates up to 256 sources, preserves source order, and returns an array of
+per-expression response envelopes. A malformed batch, invalid environment, or
+invalid variables object fails the whole request. Compile, evaluation, cost, and
+per-source size errors stay attached to the matching item.
+
+```json
+{
+  "protocolVersion": 1,
+  "ok": true,
+  "result": [
+    {"protocolVersion": 1, "ok": true, "result": {"kind": "bool", "value": true}},
+    {
+      "protocolVersion": 1,
+      "ok": false,
+      "error": {"code": "compile_error", "message": "...", "issues": []}
+    }
+  ]
+}
+```
 
 ```json
 {

@@ -1,7 +1,7 @@
 #ifndef CEL_BRIDGE_H
 #define CEL_BRIDGE_H
 
-#define CEL_BRIDGE_ABI_VERSION 1
+#define CEL_BRIDGE_ABI_VERSION 2
 
 #ifdef __cplusplus
 extern "C" {
@@ -19,6 +19,12 @@ char* cel_bridge_validate(
 char* cel_bridge_evaluate(
     const char* environment_json,
     const char* source,
+    const char* variables_json
+);
+
+char* cel_bridge_evaluate_many(
+    const char* environment_json,
+    const char* sources_json,
     const char* variables_json
 );
 

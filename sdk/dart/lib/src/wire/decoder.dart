@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import '../cel_batch_result.dart';
 import '../cel_exception.dart';
 import '../cel_runtime_options.dart';
 import '../cel_validation_result.dart';
@@ -19,6 +20,41 @@ CelValue decodeEvaluation(String raw) {
   return _decodeResult(
     'evaluation result',
     () => CelValue.fromJson(response['result']),
+  );
+}
+
+List<CelBatchResult> decodeBatch(String raw) {
+  final response = _response(raw);
+  final result = response['result'];
+  if (result is! List) {
+    throw const CelBridgeException(
+      code: 'protocol_mismatch',
+      message: 'batch result must be a list',
+    );
+  }
+  return [for (final item in result) _decodeBatchItem(item)];
+}
+
+CelBatchResult _decodeBatchItem(Object? json) {
+  final response = _object(json, 'batch item');
+  if (response['protocolVersion'] != wireProtocolVersion) {
+    throw CelBridgeException(
+      code: 'protocol_mismatch',
+      message: 'unexpected protocol version ${response['protocolVersion']}',
+    );
+  }
+  final ok = response['ok'];
+  if (ok is! bool) {
+    throw const CelBridgeException(
+      code: 'protocol_mismatch',
+      message: 'batch item.ok must be a boolean',
+    );
+  }
+  if (!ok) {
+    return CelBatchFailure(_bridgeError(response['error']));
+  }
+  return CelBatchSuccess(
+    _decodeResult('batch item', () => CelValue.fromJson(response['result'])),
   );
 }
 

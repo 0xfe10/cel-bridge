@@ -41,6 +41,19 @@ final class _IOSChannelBackend implements CelBackend {
     });
   }
 
+  @override
+  Future<String> evaluateMany(
+    String environmentJson,
+    String sourcesJson,
+    String variablesJson,
+  ) {
+    return _invoke('evaluateMany', {
+      'environment': environmentJson,
+      'sources': sourcesJson,
+      'variables': variablesJson,
+    });
+  }
+
   Future<String> _invoke(
     String method, [
     Map<String, String>? arguments,
@@ -83,6 +96,15 @@ final class _FlutterNativeBackend implements CelBackend {
     return _invoke('evaluate', environmentJson, source, variablesJson);
   }
 
+  @override
+  Future<String> evaluateMany(
+    String environmentJson,
+    String sourcesJson,
+    String variablesJson,
+  ) {
+    return _invoke('evaluateMany', environmentJson, sourcesJson, variablesJson);
+  }
+
   Future<String> _invoke(
     String operation, [
     String first = '',
@@ -92,6 +114,7 @@ final class _FlutterNativeBackend implements CelBackend {
     try {
       return await invokeNative(operation, first, second, third);
     } catch (error) {
+      if (error is CelBridgeException) rethrow;
       throw CelBridgeException(
         code: 'native_library_load_failed',
         message: 'native CEL runtime call failed: $error',

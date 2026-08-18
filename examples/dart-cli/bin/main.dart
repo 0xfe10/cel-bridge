@@ -29,6 +29,8 @@ Future<void> main() async {
   } on CelBridgeException catch (error) {
     print('error: ${error.code}: ${error.message}');
     exitCode = 1;
+  } finally {
+    exit(exitCode);
   }
 }
 

@@ -15,6 +15,8 @@ String encodeVariables(Map<String, Object?> variables) {
   return jsonEncode(_jsonObject(variables, 'variables', valueDepth: 1));
 }
 
+String encodeSources(List<String> sources) => jsonEncode(sources);
+
 Object? _jsonValue(Object? value, [int depth = 0]) {
   if (depth > _maxValueDepth) {
     throw ArgumentError('value nesting exceeds $_maxValueDepth levels');

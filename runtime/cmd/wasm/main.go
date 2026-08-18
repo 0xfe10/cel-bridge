@@ -43,11 +43,21 @@ func main() {
 			}
 			return celbridge.Evaluate(environment, source, variables)
 		}),
+		js.FuncOf(func(_ js.Value, args []js.Value) any {
+			environment, environmentOK := stringArgument(args, 0)
+			sources, sourcesOK := stringArgument(args, 1)
+			variables, variablesOK := stringArgument(args, 2)
+			if !environmentOK || !sourcesOK || !variablesOK {
+				return invalidRequestValue()
+			}
+			return celbridge.EvaluateMany(environment, sources, variables)
+		}),
 	)
 	js.Global().Set("celBridgeVersion", functions[0])
 	js.Global().Set("celBridgeRuntimeInfo", functions[1])
 	js.Global().Set("celBridgeValidate", functions[2])
 	js.Global().Set("celBridgeEvaluate", functions[3])
+	js.Global().Set("celBridgeEvaluateMany", functions[4])
 	js.Global().Set("celBridgeReady", true)
 
 	select {}

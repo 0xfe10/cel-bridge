@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.0
+
+- Added `CelRuntime.evaluateMany` for partial-failure batch evaluation.
+- Reused one native worker isolate instead of spawning an isolate per call.
+
 ## 0.3.2
 
 - Republished the shared runtime artifacts with slow-emulator release validation.

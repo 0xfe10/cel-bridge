@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.0
+
+- Added a Go compiled-program LRU cache so repeated evaluate calls skip Compile.
+- Added a persistent Dart native worker isolate for desktop and Android.
+- Added `evaluateMany` / `EvaluateMany` / `cel_bridge_evaluate_many` for batched evaluation.
+- Kept the existing single-expression C ABI and SDK APIs unchanged.
+
 ## 0.2.0
 
 - Reorganized the repository into runtime, ABI, protocol, SDK, example, and tool directories.

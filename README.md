@@ -5,13 +5,15 @@ cel-bridge provides cross-platform CEL evaluation through one Go
 SDKs share the same C ABI and JSON protocol; neither SDK reimplements CEL
 semantics.
 
-The current source version is `0.3.2`, and the wire `protocolVersion` is `1`.
+The current source version is `0.4.0`, and the wire `protocolVersion` is `1`.
 
 ## At a glance
 
 - one evaluator: Go and `cel-go`;
+- compiled Program LRU cache for repeated evaluate calls;
 - Dart and Flutter support for desktop, mobile, and Web;
 - Rust support for desktop and mobile;
+- batch evaluation through `evaluateMany` / `evaluate_many`;
 - fixed, checksummed native artifacts by default;
 - optional local source builds for repository and controlled-environment use;
 - shared conformance cases across Go, Dart, and Rust.
@@ -31,7 +33,7 @@ The current source version is `0.3.2`, and the wire `protocolVersion` is `1`.
 | Dart / Flutter | Linux x86_64/AArch64, macOS x86_64/arm64, Windows x86_64, Android arm64-v8a/armeabi-v7a/x86_64, iOS device/simulator, Web |
 | Rust | Linux x86_64/AArch64, macOS x86_64/arm64, Windows x86_64, Android arm64-v8a/armeabi-v7a/x86_64, iOS device/simulator |
 
-Windows ARM64 and Rust Web/Wasm are not provided in `v0.3.2`. The Rust crate
+Windows ARM64 and Rust Web/Wasm are not provided in `v0.4.0`. The Rust crate
 uses `std`; `no_std` is not supported.
 
 ## Native runtime selection
@@ -98,7 +100,7 @@ dependencies:
   cel_bridge:
     git:
       url: https://github.com/0xfe10/cel-bridge.git
-      ref: v0.3.2
+      ref: v0.4.0
       path: sdk/dart
 ```
 
@@ -131,6 +133,15 @@ final result = await runtime.evaluate(
 );
 
 print(result);
+
+final batch = await runtime.evaluateMany(
+  environment: const {
+    'schemaVersion': 1,
+    'variables': {'age': {'type': 'int'}},
+  },
+  sources: ['age >= 18', 'age >= 21'],
+  variables: {'age': 20},
+);
 ```
 
 See [docs/dart.md](docs/dart.md) for typed CEL values, validation, error
@@ -144,7 +155,7 @@ After crates.io publication:
 
 ```toml
 [dependencies]
-cel-bridge = "0.3.2"
+cel-bridge = "0.4.0"
 serde_json = "1.0"
 ```
 
@@ -152,7 +163,7 @@ Before crates.io publication, pin the Git dependency to the release tag:
 
 ```toml
 [dependencies]
-cel-bridge = { git = "https://github.com/0xfe10/cel-bridge.git", tag = "v0.3.2", package = "cel-bridge" }
+cel-bridge = { git = "https://github.com/0xfe10/cel-bridge.git", tag = "v0.4.0", package = "cel-bridge" }
 ```
 
 The default Cargo build downloads and verifies the target-specific runtime

@@ -4,4 +4,5 @@ EXPORTS
     cel_bridge_runtime_info
     cel_bridge_validate
     cel_bridge_evaluate
+    cel_bridge_evaluate_many
     cel_bridge_free

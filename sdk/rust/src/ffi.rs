@@ -9,6 +9,11 @@ unsafe extern "C" {
         source: *const c_char,
         variables_json: *const c_char,
     ) -> *mut c_char;
+    fn cel_bridge_evaluate_many(
+        environment_json: *const c_char,
+        sources_json: *const c_char,
+        variables_json: *const c_char,
+    ) -> *mut c_char;
     fn cel_bridge_free(value: *mut c_char);
 }
 
@@ -69,6 +74,20 @@ pub fn evaluate(
     let variables = input(variables)?;
     NativeString(unsafe {
         cel_bridge_evaluate(environment.as_ptr(), source.as_ptr(), variables.as_ptr())
+    })
+    .text()
+}
+
+pub fn evaluate_many(
+    environment: &str,
+    sources: &str,
+    variables: &str,
+) -> Result<String, CelBridgeError> {
+    let environment = input(environment)?;
+    let sources = input(sources)?;
+    let variables = input(variables)?;
+    NativeString(unsafe {
+        cel_bridge_evaluate_many(environment.as_ptr(), sources.as_ptr(), variables.as_ptr())
     })
     .text()
 }

@@ -50,4 +50,24 @@ final class _WebBackend implements CelBackend {
       );
     }
   }
+
+  @override
+  Future<String> evaluateMany(
+    String environmentJson,
+    String sourcesJson,
+    String variablesJson,
+  ) async {
+    try {
+      return celBridgeEvaluateManyJS(
+        environmentJson,
+        sourcesJson,
+        variablesJson,
+      );
+    } catch (error) {
+      throw CelBridgeException(
+        code: 'wasm_load_failed',
+        message: 'Wasm CEL runtime call failed: $error',
+      );
+    }
+  }
 }

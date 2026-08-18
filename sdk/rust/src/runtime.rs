@@ -85,6 +85,36 @@ impl CelRuntime {
         CelValue::from_json(&response["result"])
             .map_err(|error| CelBridgeError::new("protocol_mismatch", error))
     }
+
+    pub fn evaluate_many<S: AsRef<str>>(
+        &self,
+        environment: &Value,
+        sources: &[S],
+        variables: &Value,
+    ) -> Result<Vec<Result<CelValue, CelBridgeError>>, CelBridgeError> {
+        if sources.len() > 256 {
+            return Err(CelBridgeError::new(
+                "invalid_request",
+                "batch exceeds 256 expressions",
+            ));
+        }
+        if sources.is_empty() {
+            return Ok(Vec::new());
+        }
+        let environment = encode_json(environment)?;
+        let variables = encode_json(variables)?;
+        let sources = serde_json::to_string(&sources.iter().map(AsRef::as_ref).collect::<Vec<_>>())
+            .map_err(|error| CelBridgeError::new("invalid_request", error.to_string()))?;
+        let raw = ffi::evaluate_many(&environment, &sources, &variables)?;
+        let response = response(&raw)?;
+        if !response["ok"].as_bool().unwrap_or(false) {
+            return Err(error_from_response(&response));
+        }
+        let items = response["result"].as_array().ok_or_else(|| {
+            CelBridgeError::new("protocol_mismatch", "batch result must be a list")
+        })?;
+        items.iter().map(decode_batch_item).collect()
+    }
 }
 
 fn encode_json(value: &Value) -> Result<String, CelBridgeError> {
@@ -124,6 +154,17 @@ fn error_from_response(response: &Value) -> CelBridgeError {
         .filter_map(|issue| serde_json::from_value::<CelIssue>(issue).ok())
         .collect();
     CelBridgeError::with_issues(code, message, issues)
+}
+
+fn decode_batch_item(item: &Value) -> Result<Result<CelValue, CelBridgeError>, CelBridgeError> {
+    let item = response(&item.to_string())?;
+    if item["ok"].as_bool().unwrap_or(false) {
+        CelValue::from_json(&item["result"])
+            .map(Ok)
+            .map_err(|error| CelBridgeError::new("protocol_mismatch", error))
+    } else {
+        Ok(Err(error_from_response(&item)))
+    }
 }
 
 fn decode_info(value: &Value) -> Result<CelRuntimeInfo, CelBridgeError> {
