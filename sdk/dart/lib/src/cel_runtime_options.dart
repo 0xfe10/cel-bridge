@@ -1,7 +1,7 @@
 const packageVersion = '0.4.0';
 const wireProtocolVersion = 1;
 const _defaultWasmIntegrity =
-    'sha256-Fw6P3HZ0wHnu7vxuSdNrMiZLQymCbCY3TZ6MYYECp0Y=';
+    'sha256-44qu0kT2bvY+7JHXPWOYJ6veeP9MNI5XwdIwobazcyk=';
 const _defaultWasmExecIntegrity =
     'sha256-DJSfSZb5qJaY5LXFht4yJJw7abe6rbZNIgBzzASsuhQ=';
 
