@@ -13,3 +13,7 @@ func Validate(environmentJSON string, source string) string {
 func Evaluate(environmentJSON string, source string, variablesJSON string) string {
 	return defaultRuntime.JSON(defaultRuntime.Evaluate(environmentJSON, source, variablesJSON))
 }
+
+func EvaluateMany(environmentJSON string, sourcesJSON string, variablesJSON string) string {
+	return defaultRuntime.JSON(defaultRuntime.EvaluateMany(environmentJSON, sourcesJSON, variablesJSON))
+}

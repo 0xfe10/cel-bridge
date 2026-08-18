@@ -8,4 +8,10 @@ abstract interface class CelBackend {
     String source,
     String variablesJson,
   );
+
+  Future<String> evaluateMany(
+    String environmentJson,
+    String sourcesJson,
+    String variablesJson,
+  );
 }

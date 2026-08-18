@@ -12,7 +12,7 @@ void main() {
   test('runs the native runtime through the public Dart API', () async {
     final runtime = await CelRuntime.initialize();
     expect(runtime.info.protocolVersion, 1);
-    expect(runtime.info.runtimeVersion, '0.3.2');
+    expect(runtime.info.runtimeVersion, '0.4.0');
 
     final validation = await runtime.validate(
       environment: _environment,

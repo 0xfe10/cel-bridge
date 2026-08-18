@@ -47,6 +47,13 @@ external JSString celBridgeEvaluate(
   JSString variablesJson,
 );
 
+@JS('celBridgeEvaluateMany')
+external JSString celBridgeEvaluateMany(
+  JSString environmentJson,
+  JSString sourcesJson,
+  JSString variablesJson,
+);
+
 String celBridgeRuntimeInfoJS() => celBridgeRuntimeInfo().toDart;
 
 String celBridgeValidateJS(String environmentJson, String source) {
@@ -61,6 +68,18 @@ String celBridgeEvaluateJS(
   return celBridgeEvaluate(
     environmentJson.toJS,
     source.toJS,
+    variablesJson.toJS,
+  ).toDart;
+}
+
+String celBridgeEvaluateManyJS(
+  String environmentJson,
+  String sourcesJson,
+  String variablesJson,
+) {
+  return celBridgeEvaluateMany(
+    environmentJson.toJS,
+    sourcesJson.toJS,
     variablesJson.toJS,
   ).toDart;
 }

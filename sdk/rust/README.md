@@ -8,6 +8,6 @@ use the real Go runtime directly:
 
     CEL_BRIDGE_BUILD_FROM_SOURCE=1 cargo test --manifest-path sdk/rust/Cargo.toml
 
-The public API is CelRuntime, CelValue, CelValidationResult, and
-CelBridgeError. Rust Web/Wasm and no_std are intentionally not supported in
+The public API is CelRuntime, CelValue, CelValidationResult, CelBridgeError,
+and `evaluate_many`. Rust Web/Wasm and no_std are intentionally not supported in
 this release. See docs/rust.md for platform packaging and release details.

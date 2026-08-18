@@ -20,6 +20,21 @@ func TestValidateAndEvaluate(t *testing.T) {
 	if value["kind"] != "bool" || value["value"] != true {
 		t.Fatalf("unexpected result: %#v", value)
 	}
+	batch := decode(t, EvaluateMany(emptyEnvironment, `["1 + 1 == 2","false"]`, `{}`))
+	if batch["ok"] != true {
+		t.Fatalf("batch evaluation failed: %#v", batch)
+	}
+	items := batch["result"].([]any)
+	if len(items) != 2 {
+		t.Fatalf("unexpected batch: %#v", batch)
+	}
+	empty := decode(t, EvaluateMany(emptyEnvironment, `[]`, `{}`))
+	if empty["ok"] != true {
+		t.Fatalf("empty batch failed: %#v", empty)
+	}
+	if _, ok := empty["result"].([]any); !ok {
+		t.Fatalf("empty batch omitted result: %#v", empty)
+	}
 }
 
 func TestValidationReportsUndeclaredReference(t *testing.T) {

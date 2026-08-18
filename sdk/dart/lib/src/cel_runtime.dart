@@ -1,4 +1,5 @@
 import 'backend/backend.dart' as backend;
+import 'cel_batch_result.dart';
 import 'cel_exception.dart';
 import 'cel_runtime_options.dart';
 import 'cel_validation_result.dart';
@@ -6,6 +7,8 @@ import 'cel_value.dart';
 import 'runtime_info.dart';
 import 'wire/decoder.dart';
 import 'wire/encoder.dart';
+
+const maxBatchExpressions = 256;
 
 final class CelRuntime {
   CelRuntime._(this._backend, this.info);
@@ -91,6 +94,40 @@ final class CelRuntime {
       throw CelBridgeException(
         code: 'invalid_request',
         message: 'failed to encode evaluation request: $error',
+      );
+    }
+  }
+
+  Future<List<CelBatchResult>> evaluateMany({
+    required Map<String, Object?> environment,
+    required List<String> sources,
+    required Map<String, Object?> variables,
+  }) async {
+    if (sources.length > maxBatchExpressions) {
+      throw CelBridgeException(
+        code: 'invalid_request',
+        message: 'batch exceeds $maxBatchExpressions expressions',
+      );
+    }
+    for (final source in sources) {
+      _rejectNul(source, 'source');
+    }
+    if (sources.isEmpty) {
+      return const [];
+    }
+    try {
+      final raw = await _backend.evaluateMany(
+        encodeEnvironment(environment),
+        encodeSources(sources),
+        encodeVariables(variables),
+      );
+      return decodeBatch(raw);
+    } on CelBridgeException {
+      rethrow;
+    } catch (error) {
+      throw CelBridgeException(
+        code: 'invalid_request',
+        message: 'failed to encode batch evaluation request: $error',
       );
     }
   }

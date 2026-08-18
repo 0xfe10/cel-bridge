@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.0
+
+- Added `CelRuntime::evaluate_many` for partial-failure batch evaluation.
+
 ## 0.3.2
 
 - Republished the shared runtime artifacts with slow-emulator release validation.

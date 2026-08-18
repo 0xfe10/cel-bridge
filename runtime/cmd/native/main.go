@@ -54,6 +54,17 @@ func cel_bridge_evaluate(environmentJSON, source, variablesJSON *C.char) *C.char
 	return C.CString(celbridge.Evaluate(environment, expression, variables))
 }
 
+//export cel_bridge_evaluate_many
+func cel_bridge_evaluate_many(environmentJSON, sourcesJSON, variablesJSON *C.char) *C.char {
+	environment, environmentOK := input(environmentJSON)
+	sources, sourcesOK := input(sourcesJSON)
+	variables, variablesOK := input(variablesJSON)
+	if !environmentOK || !sourcesOK || !variablesOK {
+		return invalidRequest()
+	}
+	return C.CString(celbridge.EvaluateMany(environment, sources, variables))
+}
+
 //export cel_bridge_free
 func cel_bridge_free(value *C.char) {
 	if value != nil {

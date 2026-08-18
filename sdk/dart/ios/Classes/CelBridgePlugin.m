@@ -52,31 +52,44 @@ static BOOL CelBridgeHasNUL(NSString *value) {
   NSDictionary *arguments = (NSDictionary *)call.arguments;
   NSString *environment = arguments[@"environment"];
   NSString *source = arguments[@"source"];
+  NSString *sources = arguments[@"sources"];
   NSString *variables = arguments[@"variables"];
   if (![environment isKindOfClass:[NSString class]] ||
-      ![source isKindOfClass:[NSString class]] ||
+      (source != nil && ![source isKindOfClass:[NSString class]]) ||
+      (sources != nil && ![sources isKindOfClass:[NSString class]]) ||
       (variables != nil && ![variables isKindOfClass:[NSString class]]) ||
       CelBridgeHasNUL(environment) || CelBridgeHasNUL(source) ||
-      CelBridgeHasNUL(variables)) {
+      CelBridgeHasNUL(sources) || CelBridgeHasNUL(variables)) {
     result([FlutterError errorWithCode:@"invalid_request"
                                message:@"iOS CEL plugin arguments are invalid"
                                details:nil]);
     return;
   }
 
-  BOOL validate = [call.method isEqualToString:@"validate"] && variables == nil;
-  BOOL evaluate = [call.method isEqualToString:@"evaluate"] && variables != nil;
-  if (!validate && !evaluate) {
+  BOOL validate = [call.method isEqualToString:@"validate"] && source != nil &&
+                  variables == nil && sources == nil;
+  BOOL evaluate = [call.method isEqualToString:@"evaluate"] && source != nil &&
+                  variables != nil && sources == nil;
+  BOOL evaluateMany = [call.method isEqualToString:@"evaluateMany"] &&
+                      sources != nil && variables != nil && source == nil;
+  if (!validate && !evaluate && !evaluateMany) {
     result(FlutterMethodNotImplemented);
     return;
   }
 
   dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-    char *value = validate
-        ? cel_bridge_validate([environment UTF8String], [source UTF8String])
-        : cel_bridge_evaluate(
-              [environment UTF8String], [source UTF8String],
-              [variables UTF8String]);
+    char *value = NULL;
+    if (validate) {
+      value = cel_bridge_validate([environment UTF8String], [source UTF8String]);
+    } else if (evaluateMany) {
+      value = cel_bridge_evaluate_many(
+          [environment UTF8String], [sources UTF8String],
+          [variables UTF8String]);
+    } else {
+      value = cel_bridge_evaluate(
+          [environment UTF8String], [source UTF8String],
+          [variables UTF8String]);
+    }
     NSString *json = CelBridgeJSON(value);
     dispatch_async(dispatch_get_main_queue(), ^{
       result(json ?: CelBridgeError(@"iOS CEL runtime returned invalid JSON"));

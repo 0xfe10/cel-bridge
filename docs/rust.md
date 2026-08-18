@@ -10,7 +10,7 @@ After the crate is published, use the release version:
 
 ```toml
 [dependencies]
-cel-bridge = "0.3.2"
+cel-bridge = "0.4.0"
 serde_json = "1.0"
 ```
 
@@ -18,7 +18,7 @@ Until then, use the release tag and repository path:
 
 ```toml
 [dependencies]
-cel-bridge = { git = "https://github.com/0xfe10/cel-bridge.git", tag = "v0.3.2", package = "cel-bridge" }
+cel-bridge = { git = "https://github.com/0xfe10/cel-bridge.git", tag = "v0.4.0", package = "cel-bridge" }
 serde_json = "1.0"
 ```
 
@@ -52,6 +52,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         &json!({"age": 20}),
     )?;
     assert_eq!(value, CelValue::Bool(true));
+
+    let batch = runtime.evaluate_many(
+        &environment,
+        &["age >= 18", "age >= 21"],
+        &json!({"age": 20}),
+    )?;
+    assert!(batch[0].is_ok());
     Ok(())
 }
 ```
@@ -59,7 +66,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 `CelRuntime::new()` performs the protocol and runtime version handshake.
 Initialize one runtime per service or application component and reuse it for
 multiple calls. `validate` returns a `CelValidationResult` for source and type
-errors. `evaluate` returns a `CelValue` or a `CelBridgeError`.
+errors. `evaluate` returns a `CelValue` or a `CelBridgeError`. `evaluate_many`
+returns one result per source and keeps going when a single expression fails.
 
 ## Values and errors
 
@@ -94,7 +102,7 @@ configuration. Web applications should use the Dart SDK and Go Wasm backend.
 
 ### Fixed Release artifacts
 
-The default build downloads the exact `v0.3.2` runtime artifact for Cargo's
+The default build downloads the exact `v0.4.0` runtime artifact for Cargo's
 target, then verifies its size and SHA-256 against the release manifest.
 Consumers do not need a Go installation in this mode.
 
@@ -102,7 +110,7 @@ The default GitHub layout is:
 
 ```text
 https://github.com/0xfe10/cel-bridge/releases/download/
-  v0.3.2/cel-bridge-manifest-v0.3.2.json
+  v0.4.0/cel-bridge-manifest-v0.4.0.json
 ```
 
 For an internal mirror, set the release-download root, not the version
@@ -113,7 +121,7 @@ export CEL_BRIDGE_RELEASE_BASE_URL=https://artifacts.example.com/cel-bridge/down
 cargo build
 ```
 
-The build script appends `/v0.3.2/<file>`. HTTPS is required. HTTP is accepted
+The build script appends `/v0.4.0/<file>`. HTTPS is required. HTTP is accepted
 only when `CEL_BRIDGE_ALLOW_INSECURE_RELEASE_BASE=1` is explicitly set for a
 localhost test fixture.
 
@@ -163,7 +171,7 @@ app/src/main/jniLibs/armeabi-v7a/libcel_bridge.so
 app/src/main/jniLibs/x86_64/libcel_bridge.so
 ```
 
-Use the shared `cel-bridge-android-*-v0.3.2.tar.gz` runtime artifacts or build
+Use the shared `cel-bridge-android-*-v0.4.0.tar.gz` runtime artifacts or build
 the matching Go shared library from source. Dart and Rust use the same Android
 `.so`. Do not put a Linux or desktop library in an
 Android ABI directory. The repository's Rust smoke harness is in
@@ -173,7 +181,7 @@ Android ABI directory. The repository's Rust smoke harness is in
 
 iOS uses a Go static archive because Go does not provide the dynamic code-asset
 shape required by the Flutter iOS hook. The shared
-`cel-bridge-ios-xcframework-v0.3.2.zip` contains device and universal simulator
+`cel-bridge-ios-xcframework-v0.4.0.zip` contains device and universal simulator
 slices. Rust selects the matching slice from that same XCFramework and thins
 the universal simulator archive to Cargo's target architecture; Flutter uses
 the XCFramework through CocoaPods.
@@ -188,7 +196,7 @@ archive into a device target.
 Windows uses `cel_bridge.dll` plus the MSVC-compatible `cel_bridge.lib` import
 library. The build script extracts both files; keep the DLL beside the final
 executable or in a directory on the process DLL search path. The release
-artifact is `cel-bridge-windows-x86_64-v0.3.2.zip`. Both files must match
+artifact is `cel-bridge-windows-x86_64-v0.4.0.zip`. Both files must match
 the executable's architecture and the Rust target's linker/toolchain.
 
 ## Verify an integration

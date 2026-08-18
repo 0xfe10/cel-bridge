@@ -1,5 +1,6 @@
 library;
 
+export 'src/cel_batch_result.dart';
 export 'src/cel_environment.dart';
 export 'src/cel_exception.dart';
 export 'src/cel_issue.dart';
