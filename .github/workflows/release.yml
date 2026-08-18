@@ -215,7 +215,7 @@ jobs:
           path: build/artifacts/*
           if-no-files-found: error
 
-  draft:
+  github-release:
     needs: [version, build]
     runs-on: ubuntu-latest
     permissions:
@@ -277,6 +277,7 @@ jobs:
             done
 
       - name: Validate release target before mutation
+        id: target
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -290,20 +291,25 @@ jobs:
           release_status=$?
           set -e
           if [[ "$release_status" -eq 0 ]]; then
-            test "$release_lookup" = true
+            if [[ "$release_lookup" == "true" ]]; then
+              echo "state=draft" >> "$GITHUB_OUTPUT"
+            else
+              echo "state=published" >> "$GITHUB_OUTPUT"
+            fi
           elif [[ "$release_status" -eq 1 && "$release_lookup" == "release not found" ]]; then
-            :
+            echo "state=missing" >> "$GITHUB_OUTPUT"
           else
             printf '%s\n' "$release_lookup" >&2
             exit "$release_status"
           fi
 
-      - name: Create Draft Release
+      - name: Publish GitHub Release
+        if: steps.target.outputs.state != 'published'
         uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228
         with:
           tag_name: ${{ needs.version.outputs.tag }}
           name: cel-bridge ${{ needs.version.outputs.version }}
-          draft: true
+          draft: false
           generate_release_notes: true
           prerelease: ${{ contains(needs.version.outputs.tag, '-') }}
           fail_on_unmatched_files: true
@@ -312,7 +318,7 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
 
   release-consumption:
-    needs: [version, draft]
+    needs: [version, github-release]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -338,7 +344,7 @@ jobs:
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@4360b52568e2003a75bf9bc1d59f33a8e3fc893c
 
-      - name: Download Draft Release assets
+      - name: Download Release assets
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -413,7 +419,7 @@ jobs:
             cargo run --manifest-path tools/fixtures/rust-release-consumer/Cargo.toml --quiet
 
   release-platform-consumption:
-    needs: [version, draft]
+    needs: [version, github-release]
     strategy:
       fail-fast: false
       matrix:
@@ -490,7 +496,7 @@ jobs:
         if: matrix.kind == 'ios'
         run: rustup target add aarch64-apple-ios aarch64-apple-ios-sim x86_64-apple-ios
 
-      - name: Download Draft Release assets
+      - name: Download Release assets
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -712,7 +718,7 @@ jobs:
                       'CFBundleInfoDictionaryVersion': '6.0',
                       'CFBundleName': 'CelBridgeRustSmoke',
                       'CFBundlePackageType': 'APPL',
-                      'CFBundleShortVersionString': '0.4.0',
+                      'CFBundleShortVersionString': Path('VERSION').read_text().strip(),
                       'CFBundleVersion': '1',
                       'MinimumOSVersion': '13.0',
                   },
@@ -765,7 +771,7 @@ jobs:
             "$GITHUB_WORKSPACE/build/ios-rust-release-smoke.log"
 
   publish-check:
-    needs: [version, release-consumption, release-platform-consumption]
+    needs: [version, github-release]
     runs-on: ubuntu-latest
     steps:
       - name: Check out source
@@ -803,27 +809,39 @@ jobs:
             cargo publish --manifest-path sdk/rust/Cargo.toml \
               --dry-run --allow-dirty
 
-  publish:
-    needs: [version, publish-check]
+  report-release-checks:
+    needs: [version, release-consumption, release-platform-consumption, publish-check]
+    if: always() && (needs.release-consumption.result == 'failure' || needs.release-platform-consumption.result == 'failure' || needs.publish-check.result == 'failure')
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      issues: write
     steps:
-      - name: Verify Draft Release
-        shell: bash
+      - name: Open issue for failed post-release checks
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ needs.version.outputs.tag }}
-          RELEASE_COMMIT: ${{ needs.version.outputs.commit }}
+          CONSUMPTION: ${{ needs.release-consumption.result }}
+          PLATFORM: ${{ needs.release-platform-consumption.result }}
+          PUBLISH_CHECK: ${{ needs.publish-check.result }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           set -euo pipefail
-          test "$(gh api "repos/$GITHUB_REPOSITORY/commits/$RELEASE_TAG" --jq .sha)" = "$RELEASE_COMMIT"
-          test "$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)" = true
-
-      - name: Publish verified GitHub Release
-        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228
-        with:
-          tag_name: ${{ needs.version.outputs.tag }}
-          prerelease: ${{ contains(needs.version.outputs.tag, '-') }}
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
+          title="Release ${RELEASE_TAG} post-publish checks failed"
+          body="$(printf '%s\n' \
+            "The GitHub Release for \`${RELEASE_TAG}\` is already published." \
+            "" \
+            "Post-publish checks failed in ${RUN_URL}." \
+            "" \
+            "| Check | Result |" \
+            "|---|---|" \
+            "| release-consumption | ${CONSUMPTION} |" \
+            "| release-platform-consumption | ${PLATFORM} |" \
+            "| publish-check | ${PUBLISH_CHECK} |" \
+            "" \
+            "The published release was not retracted. Investigate the failed jobs, then close this issue.")"
+          existing="$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "\"${title}\" in:title" --json number --jq '.[0].number // empty')"
+          if [[ -n "$existing" ]]; then
+            gh issue comment "$existing" --repo "$GITHUB_REPOSITORY" --body "$body"
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --body "$body"
+          fi

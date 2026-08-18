@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.1
+
+- Publish the GitHub Release as soon as artifacts are ready. Post-publish
+  consumer checks continue afterwards and open an issue on failure.
+
 ## 0.4.0
 
 - Added a Go compiled-program LRU cache so repeated evaluate calls skip Compile.

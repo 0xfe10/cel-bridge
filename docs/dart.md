@@ -1,7 +1,7 @@
 # cel-bridge Dart / Flutter Integration Guide
 
 This guide is for developers integrating `cel_bridge` into Dart, Flutter,
-desktop, Android, iOS, or Web applications. It targets the current `v0.4.0`
+desktop, Android, iOS, or Web applications. It targets the current `v0.4.1`
 API.
 
 `cel_bridge` wraps the Go CEL runtime in a Dart API:
@@ -24,7 +24,7 @@ API.
 | iOS Simulator | arm64, x86_64 | Static `libcel_bridge.a`, provided by the XCFramework | No |
 | Web | Browser Wasm | `cel_bridge.wasm`, `wasm_exec.js` | No |
 
-Windows ARM64 is not included in `v0.4.0`. Linux AArch64 is supported by the
+Windows ARM64 is not included in `v0.4.1`. Linux AArch64 is supported by the
 release artifact and must use the matching `linux-aarch64-dynamic` library.
 
 ### Versions and toolchains
@@ -46,7 +46,7 @@ dependencies:
   cel_bridge:
     git:
       url: https://github.com/0xfe10/cel-bridge.git
-      ref: v0.4.0
+      ref: v0.4.1
       path: sdk/dart
 ```
 
@@ -518,16 +518,16 @@ hooks:
   user_defines:
     cel_bridge:
       build_from_source: false
-      release_base_url: "https://artifacts.example.com/cel-bridge/v0.4.0"
+      release_base_url: "https://artifacts.example.com/cel-bridge/v0.4.1"
 ```
 
 The mirror must provide the manifest and every target archive for the current
 version, with the original filenames unchanged. For example:
 
 ```text
-cel-bridge-manifest-v0.4.0.json
-cel-bridge-linux-x86_64-dynamic-v0.4.0.tar.gz
-cel-bridge-android-arm64-v8a-v0.4.0.tar.gz
+cel-bridge-manifest-v0.4.1.json
+cel-bridge-linux-x86_64-dynamic-v0.4.1.tar.gz
+cel-bridge-android-arm64-v8a-v0.4.1.tar.gz
 ...
 ```
 
@@ -658,14 +658,14 @@ Requirements and behavior:
   `CEL_BRIDGE_IOS_XCFRAMEWORK_PATH`;
 - Flutter builds run the pod script phase automatically;
 - the script phase downloads and verifies
-  `cel-bridge-ios-xcframework-v0.4.0.zip` from the Release;
+  `cel-bridge-ios-xcframework-v0.4.1.zip` from the Release;
 - runtime CEL calls never download executable code;
 - `CEL_BRIDGE_IOS_XCFRAMEWORK_PATH` can point to a local XCFramework;
 - the following environment variables can point to an internal mirror:
 
 ```bash
-export CEL_BRIDGE_IOS_XCFRAMEWORK_URL="https://artifacts.example.com/cel-bridge/v0.4.0/cel-bridge-ios-xcframework-v0.4.0.zip"
-export CEL_BRIDGE_IOS_XCFRAMEWORK_CHECKSUM_URL="https://artifacts.example.com/cel-bridge/v0.4.0/checksums.txt"
+export CEL_BRIDGE_IOS_XCFRAMEWORK_URL="https://artifacts.example.com/cel-bridge/v0.4.1/cel-bridge-ios-xcframework-v0.4.1.zip"
+export CEL_BRIDGE_IOS_XCFRAMEWORK_CHECKSUM_URL="https://artifacts.example.com/cel-bridge/v0.4.1/checksums.txt"
 
 flutter build ios --simulator --no-codesign
 ```

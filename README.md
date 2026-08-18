@@ -5,7 +5,7 @@ cel-bridge provides cross-platform CEL evaluation through one Go
 SDKs share the same C ABI and JSON protocol; neither SDK reimplements CEL
 semantics.
 
-The current source version is `0.4.0`, and the wire `protocolVersion` is `1`.
+The current source version is `0.4.1`, and the wire `protocolVersion` is `1`.
 
 ## At a glance
 
@@ -33,7 +33,7 @@ The current source version is `0.4.0`, and the wire `protocolVersion` is `1`.
 | Dart / Flutter | Linux x86_64/AArch64, macOS x86_64/arm64, Windows x86_64, Android arm64-v8a/armeabi-v7a/x86_64, iOS device/simulator, Web |
 | Rust | Linux x86_64/AArch64, macOS x86_64/arm64, Windows x86_64, Android arm64-v8a/armeabi-v7a/x86_64, iOS device/simulator |
 
-Windows ARM64 and Rust Web/Wasm are not provided in `v0.4.0`. The Rust crate
+Windows ARM64 and Rust Web/Wasm are not provided in `v0.4.1`. The Rust crate
 uses `std`; `no_std` is not supported.
 
 ## Native runtime selection
@@ -100,7 +100,7 @@ dependencies:
   cel_bridge:
     git:
       url: https://github.com/0xfe10/cel-bridge.git
-      ref: v0.4.0
+      ref: v0.4.1
       path: sdk/dart
 ```
 
@@ -155,7 +155,7 @@ After crates.io publication:
 
 ```toml
 [dependencies]
-cel-bridge = "0.4.0"
+cel-bridge = "0.4.1"
 serde_json = "1.0"
 ```
 
@@ -163,7 +163,7 @@ Before crates.io publication, pin the Git dependency to the release tag:
 
 ```toml
 [dependencies]
-cel-bridge = { git = "https://github.com/0xfe10/cel-bridge.git", tag = "v0.4.0", package = "cel-bridge" }
+cel-bridge = { git = "https://github.com/0xfe10/cel-bridge.git", tag = "v0.4.1", package = "cel-bridge" }
 ```
 
 The default Cargo build downloads and verifies the target-specific runtime
@@ -211,9 +211,11 @@ and other language bindings consume the same compatible runtime artifact.
 Manifest entries identify the artifact ID, OS, architecture, linkage, archive
 format, libraries, SHA-256 digest, and byte size.
 
-The Release workflow creates a Draft Release, downloads every artifact again,
-verifies checksums, and runs Dart, Rust, Web, Android, and iOS consumers before
-publication. pub.dev and crates.io publication remain manual approval steps.
+The Release workflow publishes the GitHub Release as soon as artifacts are
+built and verified. Dart, Rust, Web, Android, and iOS consumer checks continue
+after publication. A failed post-publish check opens an issue and does not
+retract the Release. pub.dev and crates.io publication remain manual approval
+steps.
 
 The historical `v0.1.0` tag and Release remain unchanged.
 

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.1
+
+- Point default Web artifacts at the `v0.4.1` GitHub Release.
+
 ## 0.4.0
 
 - Added `CelRuntime.evaluateMany` for partial-failure batch evaluation.

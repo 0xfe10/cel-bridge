@@ -532,4 +532,4 @@ jobs:
           cd tools
           dart run bin/web_smoke_runner.dart \
             http://127.0.0.1:8124/ | tee ../build/web-smoke/result.txt
-          grep -Fq '0.4.0|true|true' ../build/web-smoke/result.txt
+          grep -Fq "$(cat ../VERSION)|true|true" ../build/web-smoke/result.txt

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.1
+
+- Point default runtime artifact downloads at the `v0.4.1` GitHub Release.
+
 ## 0.4.0
 
 - Added `CelRuntime::evaluate_many` for partial-failure batch evaluation.
