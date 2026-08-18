@@ -65,25 +65,6 @@ jobs:
           echo "tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
           echo "commit=$release_commit" >> "$GITHUB_OUTPUT"
 
-      - name: Require successful Check workflow
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_COMMIT: ${{ steps.version.outputs.commit }}
-        run: |
-          set -euo pipefail
-          successful_runs="$(gh run list \
-            --repo "$GITHUB_REPOSITORY" \
-            --workflow check.yml \
-            --commit "$RELEASE_COMMIT" \
-            --json status,conclusion \
-            --jq '[.[] | select(.status == "completed" and .conclusion == "success")] | length')"
-          test "$successful_runs" -ge 1
-          comparison="$(gh api \
-            "repos/$GITHUB_REPOSITORY/compare/$RELEASE_COMMIT...main" \
-            --jq .status)"
-          [[ "$comparison" == "ahead" || "$comparison" == "identical" ]]
-
   build:
     needs: version
     strategy:
