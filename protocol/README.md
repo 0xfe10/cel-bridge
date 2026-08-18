@@ -12,9 +12,11 @@ not implement CEL compilation or evaluation.
 
 - `schema/environment.schema.json` describes declared CEL variables.
 - `schema/value.schema.json` describes the tagged `CelValue` representation.
+- `schema/type.schema.json` describes `resultType` and `expectedResultType`.
 - `schema/response.schema.json` describes success and failure envelopes.
 - `testdata/conformance_cases.json` contains successful evaluation cases.
 - `testdata/error_cases.json` contains stable error-code cases.
+- `testdata/type_contract_cases.json` contains result-type and expected-type cases.
 
 The Go and Dart test suites read the same files. `tools/bin/verify_protocol.dart`
 performs the repository-level structural check used by CI.
@@ -23,14 +25,37 @@ performs the repository-level structural check used by CI.
 
 The native and Wasm APIs accept UTF-8 JSON strings. A validation request needs
 an environment and CEL source. An evaluation request additionally needs a JSON
-object containing variables. Batch evaluation accepts a JSON array of source
-strings with one shared environment and one shared variables object.
+object containing variables. `cel_bridge_evaluate_many` accepts a JSON array of
+source strings with one shared environment and one shared variables object.
+`cel_bridge_evaluate_requests` accepts a JSON array of `{id, source|programId,
+variables, expectedResultType?}` objects; each item has its own variables.
+Duplicate or empty ids fail the whole batch with `invalid_request`.
+
+Optional request options may be passed to `cel_bridge_validate_options`,
+`cel_bridge_evaluate_options`, `cel_bridge_evaluate_requests`,
+`cel_bridge_prepare`, and `cel_bridge_evaluate_program`, or as extra Wasm string
+arguments. The old two- and three-argument entry points remain and behave as
+empty options. The ABI version is `4`.
+
+`cel_bridge_call_v2` is a length-delimited JSON dispatcher (`{op, ...}`). The
+NUL-terminated symbols remain the SDK default.
 
 `cel_bridge_evaluate` remains the single-expression ABI. `cel_bridge_evaluate_many`
 evaluates up to 256 sources, preserves source order, and returns an array of
 per-expression response envelopes. A malformed batch, invalid environment, or
 invalid variables object fails the whole request. Compile, evaluation, cost, and
 per-source size errors stay attached to the matching item.
+
+`cel_bridge_evaluate_requests` returns `{id, ok, result?, error?}` items, not
+nested protocol envelopes. Per-item compile or evaluation failures do not cancel
+siblings. A wall-clock `deadlineMs` of `0` fails items that have not started
+with `deadline_exceeded`; in-flight `cel-go` evaluation is not interrupted.
+
+Prepared programs are created with `cel_bridge_prepare` (`{programId}`),
+evaluated with `cel_bridge_evaluate_program`, and released with
+`cel_bridge_release_program`. Capacity exhaustion returns `program_limit_exceeded`.
+Unknown ids return `program_not_found`. `cel_bridge_close` disposes the process
+runtime (`runtime_closed` afterwards); `cel_bridge_create` replaces it.
 
 ```json
 {
@@ -109,9 +134,40 @@ Successful validation:
 {
   "protocolVersion": 1,
   "ok": true,
-  "result": {"valid": true, "issues": []}
+  "result": {
+    "valid": true,
+    "resultType": {"type": "bool"},
+    "issues": []
+  }
 }
 ```
+
+`resultType` uses the stable type encoding below. Compile failures omit
+`resultType`. Callers may also send request options JSON:
+
+```json
+{"expectedResultType": "bool"}
+```
+
+`expectedResultType` may be a scalar type name or a nested type object. A
+static mismatch fails validation with `valid: false` and issue code
+`result_type_mismatch`, and fails evaluation with the same error code. When
+the static type is `dyn`, evaluation checks the runtime value and still
+returns `result_type_mismatch` instead of coercing or defaulting.
+
+Type objects are:
+
+```json
+{"type": "bool"}
+{"type": "null"}
+{"type": "dyn"}
+{"type": "list", "element": {"type": "int"}}
+{"type": "map", "key": {"type": "string"}, "value": {"type": "dyn"}}
+```
+
+Unknown or imprecise CEL types are encoded as `dyn`. The runtime does not
+rewrite caller variables, inject defaults, or treat names such as `session`,
+`tenant`, or `component` differently from any other identifier.
 
 Successful evaluation returns a tagged value in `result`:
 
@@ -150,9 +206,16 @@ Known response error codes include:
 
 - `invalid_request`
 - `invalid_environment`
+- `parse_error`
 - `compile_error`
 - `evaluation_error`
+- `missing_variable`
+- `result_type_mismatch`
 - `cost_limit_exceeded`
+- `deadline_exceeded`
+- `program_not_found`
+- `program_limit_exceeded`
+- `runtime_closed`
 - `source_too_large`
 - `variables_too_large`
 - `output_too_large`

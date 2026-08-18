@@ -5,6 +5,6 @@ mod value;
 mod wire;
 
 pub use error::CelBridgeError;
-pub use runtime::{CelRuntime, CelRuntimeInfo};
+pub use runtime::{CelRuntime, CelRuntimeInfo, EvaluationRequest, RequestOptions, RequestResult};
 pub use value::{CelMapEntry, CelValue};
-pub use wire::{CelIssue, CelValidationResult};
+pub use wire::{CelIssue, CelTypeRef, CelValidationResult};

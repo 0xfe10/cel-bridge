@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.0
+
+- Added `RequestOptions` / `validate_with` / `evaluate_with` for `expectedResultType`.
+- `CelValidationResult` now includes `result_type`.
+- Added `evaluate_requests`, `prepare`, `evaluate_program`, `release_program`, and `close`/`recreate`.
+
 ## 0.4.1
 
 - Point default runtime artifact downloads at the `v0.4.1` GitHub Release.

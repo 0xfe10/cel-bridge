@@ -24,9 +24,13 @@ final class _WebBackend implements CelBackend {
   Future<String> runtimeInfo() async => celBridgeRuntimeInfoJS();
 
   @override
-  Future<String> validate(String environmentJson, String source) async {
+  Future<String> validate(
+    String environmentJson,
+    String source, [
+    String optionsJson = '',
+  ]) async {
     try {
-      return celBridgeValidateJS(environmentJson, source);
+      return celBridgeValidateJS(environmentJson, source, optionsJson);
     } catch (error) {
       throw CelBridgeException(
         code: 'wasm_load_failed',
@@ -39,10 +43,16 @@ final class _WebBackend implements CelBackend {
   Future<String> evaluate(
     String environmentJson,
     String source,
-    String variablesJson,
-  ) async {
+    String variablesJson, [
+    String optionsJson = '',
+  ]) async {
     try {
-      return celBridgeEvaluateJS(environmentJson, source, variablesJson);
+      return celBridgeEvaluateJS(
+        environmentJson,
+        source,
+        variablesJson,
+        optionsJson,
+      );
     } catch (error) {
       throw CelBridgeException(
         code: 'wasm_load_failed',
@@ -63,6 +73,94 @@ final class _WebBackend implements CelBackend {
         sourcesJson,
         variablesJson,
       );
+    } catch (error) {
+      throw CelBridgeException(
+        code: 'wasm_load_failed',
+        message: 'Wasm CEL runtime call failed: $error',
+      );
+    }
+  }
+
+  @override
+  Future<String> evaluateRequests(
+    String environmentJson,
+    String requestsJson, [
+    String optionsJson = '',
+  ]) async {
+    try {
+      return celBridgeEvaluateRequestsJS(
+        environmentJson,
+        requestsJson,
+        optionsJson,
+      );
+    } catch (error) {
+      throw CelBridgeException(
+        code: 'wasm_load_failed',
+        message: 'Wasm CEL runtime call failed: $error',
+      );
+    }
+  }
+
+  @override
+  Future<String> prepare(
+    String environmentJson,
+    String source, [
+    String optionsJson = '',
+  ]) async {
+    try {
+      return celBridgePrepareJS(environmentJson, source, optionsJson);
+    } catch (error) {
+      throw CelBridgeException(
+        code: 'wasm_load_failed',
+        message: 'Wasm CEL runtime call failed: $error',
+      );
+    }
+  }
+
+  @override
+  Future<String> evaluateProgram(
+    String programId,
+    String variablesJson, [
+    String optionsJson = '',
+  ]) async {
+    try {
+      return celBridgeEvaluateProgramJS(programId, variablesJson, optionsJson);
+    } catch (error) {
+      throw CelBridgeException(
+        code: 'wasm_load_failed',
+        message: 'Wasm CEL runtime call failed: $error',
+      );
+    }
+  }
+
+  @override
+  Future<String> releaseProgram(String programId) async {
+    try {
+      return celBridgeReleaseProgramJS(programId);
+    } catch (error) {
+      throw CelBridgeException(
+        code: 'wasm_load_failed',
+        message: 'Wasm CEL runtime call failed: $error',
+      );
+    }
+  }
+
+  @override
+  Future<String> close() async {
+    try {
+      return celBridgeCloseJS();
+    } catch (error) {
+      throw CelBridgeException(
+        code: 'wasm_load_failed',
+        message: 'Wasm CEL runtime call failed: $error',
+      );
+    }
+  }
+
+  @override
+  Future<String> create([String optionsJson = '']) async {
+    try {
+      return celBridgeCreateJS(optionsJson);
     } catch (error) {
       throw CelBridgeException(
         code: 'wasm_load_failed',

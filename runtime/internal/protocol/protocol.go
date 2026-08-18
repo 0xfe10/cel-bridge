@@ -3,6 +3,7 @@ package protocol
 import "encoding/json"
 
 const Version = 1
+const ABIVersion = 4
 const taggedValueMarker = "$cel_bridge"
 
 type Response struct {
@@ -19,8 +20,18 @@ type BridgeError struct {
 }
 
 type ValidationResult struct {
-	Valid  bool    `json:"valid"`
-	Issues []Issue `json:"issues"`
+	Valid      bool     `json:"valid"`
+	ResultType *TypeRef `json:"resultType,omitempty"`
+	Issues     []Issue  `json:"issues"`
+}
+
+// TypeRef is the stable, cross-SDK CEL type encoding used for resultType
+// and expectedResultType. Nested list/map types use element/key/value.
+type TypeRef struct {
+	Type    string   `json:"type"`
+	Element *TypeRef `json:"element,omitempty"`
+	Key     *TypeRef `json:"key,omitempty"`
+	Value   *TypeRef `json:"value,omitempty"`
 }
 
 type Issue struct {
@@ -33,9 +44,31 @@ type Issue struct {
 
 type RuntimeInfo struct {
 	ProtocolVersion int             `json:"protocolVersion"`
+	ABIVersion      int             `json:"abiVersion"`
 	RuntimeVersion  string          `json:"runtimeVersion"`
 	CELGoVersion    string          `json:"celGoVersion"`
 	Features        map[string]bool `json:"features"`
+	Profiles        []string        `json:"profiles"`
+	Limits          map[string]int  `json:"limits"`
+}
+
+type RequestResult struct {
+	ID     string       `json:"id"`
+	OK     bool         `json:"ok"`
+	Result any          `json:"result,omitempty"`
+	Error  *BridgeError `json:"error,omitempty"`
+}
+
+type PrepareResult struct {
+	ProgramID string `json:"programId"`
+}
+
+type ReleaseResult struct {
+	Released bool `json:"released"`
+}
+
+type CloseResult struct {
+	Closed bool `json:"closed"`
 }
 
 type Value struct {

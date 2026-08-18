@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/0xfe10/cel-bridge/protocol/schema/type.schema.json",
+  "title": "cel-bridge CEL type reference",
+  "description": "Stable cross-SDK encoding for resultType and expectedResultType.",
+  "$ref": "#/$defs/typeRef",
+  "$defs": {
+    "typeRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "null",
+            "bool",
+            "int",
+            "uint",
+            "double",
+            "string",
+            "bytes",
+            "timestamp",
+            "duration",
+            "dyn",
+            "list",
+            "map"
+          ]
+        },
+        "element": {"$ref": "#/$defs/typeRef"},
+        "key": {"$ref": "#/$defs/typeRef"},
+        "value": {"$ref": "#/$defs/typeRef"}
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {"type": {"const": "list"}},
+            "required": ["type"]
+          },
+          "then": {"required": ["element"]}
+        },
+        {
+          "if": {
+            "properties": {"type": {"const": "map"}},
+            "required": ["type"]
+          },
+          "then": {"required": ["key", "value"]}
+        }
+      ]
+    }
+  }
+}

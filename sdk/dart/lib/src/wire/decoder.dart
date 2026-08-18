@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import '../cel_batch_result.dart';
 import '../cel_exception.dart';
+import '../cel_request_result.dart';
 import '../cel_runtime_options.dart';
 import '../cel_validation_result.dart';
 import '../cel_value.dart';
@@ -21,6 +22,69 @@ CelValue decodeEvaluation(String raw) {
     'evaluation result',
     () => CelValue.fromJson(response['result']),
   );
+}
+
+List<CelRequestResult> decodeRequests(String raw) {
+  final response = _response(raw);
+  final result = response['result'];
+  if (result is! List) {
+    throw const CelBridgeException(
+      code: 'protocol_mismatch',
+      message: 'request batch result must be a list',
+    );
+  }
+  return [for (final item in result) _decodeRequestItem(item)];
+}
+
+CelRequestResult _decodeRequestItem(Object? json) {
+  final item = _object(json, 'request result');
+  final id = item['id'];
+  if (id is! String || id.isEmpty) {
+    throw const CelBridgeException(
+      code: 'protocol_mismatch',
+      message: 'request result.id must be a non-empty string',
+    );
+  }
+  final ok = item['ok'];
+  if (ok is! bool) {
+    throw const CelBridgeException(
+      code: 'protocol_mismatch',
+      message: 'request result.ok must be a boolean',
+    );
+  }
+  if (!ok) {
+    return CelRequestFailure(id, _bridgeError(item['error']));
+  }
+  return CelRequestSuccess(
+    id,
+    _decodeResult('request result', () => CelValue.fromJson(item['result'])),
+  );
+}
+
+String decodePrepare(String raw) {
+  final response = _response(raw);
+  final result = _object(response['result'], 'prepare result');
+  final programId = result['programId'];
+  if (programId is! String || programId.isEmpty) {
+    throw const CelBridgeException(
+      code: 'protocol_mismatch',
+      message: 'prepare result.programId must be a non-empty string',
+    );
+  }
+  return programId;
+}
+
+void decodeAck(String raw) {
+  _response(raw);
+}
+
+CelRuntimeInfo decodeCreatedRuntime(String raw) {
+  final value = _decode(raw);
+  final object = _object(value, 'create result');
+  if (object['ok'] == false) {
+    throw _bridgeError(object['error']);
+  }
+  return decodeRuntimeInfo(raw);
 }
 
 List<CelBatchResult> decodeBatch(String raw) {

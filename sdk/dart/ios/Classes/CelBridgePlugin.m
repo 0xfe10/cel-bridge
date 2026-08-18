@@ -21,6 +21,19 @@ static BOOL CelBridgeHasNUL(NSString *value) {
   return [value rangeOfString:@"\0"].location != NSNotFound;
 }
 
+static BOOL CelBridgeInvalidString(id value) {
+  if (value == nil || value == [NSNull null]) return NO;
+  if (![value isKindOfClass:[NSString class]]) return YES;
+  return CelBridgeHasNUL((NSString *)value);
+}
+
+static NSString *CelBridgeString(NSDictionary *arguments, NSString *key) {
+  id value = arguments[key];
+  if (value == nil || value == [NSNull null]) return nil;
+  if (![value isKindOfClass:[NSString class]]) return nil;
+  return (NSString *)value;
+}
+
 @implementation CelBridgePlugin
 
 + (void)registerWithRegistrar:(NSObject<FlutterPluginRegistrar> *)registrar {
@@ -42,53 +55,77 @@ static BOOL CelBridgeHasNUL(NSString *value) {
     result(value ?: CelBridgeError(@"iOS CEL runtime returned invalid JSON"));
     return;
   }
-
-  if (![call.arguments isKindOfClass:[NSDictionary class]]) {
-    result([FlutterError errorWithCode:@"invalid_request"
-                               message:@"iOS CEL plugin arguments are invalid"
-                               details:nil]);
-    return;
-  }
-  NSDictionary *arguments = (NSDictionary *)call.arguments;
-  NSString *environment = arguments[@"environment"];
-  NSString *source = arguments[@"source"];
-  NSString *sources = arguments[@"sources"];
-  NSString *variables = arguments[@"variables"];
-  if (![environment isKindOfClass:[NSString class]] ||
-      (source != nil && ![source isKindOfClass:[NSString class]]) ||
-      (sources != nil && ![sources isKindOfClass:[NSString class]]) ||
-      (variables != nil && ![variables isKindOfClass:[NSString class]]) ||
-      CelBridgeHasNUL(environment) || CelBridgeHasNUL(source) ||
-      CelBridgeHasNUL(sources) || CelBridgeHasNUL(variables)) {
-    result([FlutterError errorWithCode:@"invalid_request"
-                               message:@"iOS CEL plugin arguments are invalid"
-                               details:nil]);
+  if ([call.method isEqualToString:@"close"]) {
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+      NSString *json = CelBridgeJSON(cel_bridge_close());
+      dispatch_async(dispatch_get_main_queue(), ^{
+        result(json ?: CelBridgeError(@"iOS CEL runtime returned invalid JSON"));
+      });
+    });
     return;
   }
 
-  BOOL validate = [call.method isEqualToString:@"validate"] && source != nil &&
-                  variables == nil && sources == nil;
-  BOOL evaluate = [call.method isEqualToString:@"evaluate"] && source != nil &&
-                  variables != nil && sources == nil;
-  BOOL evaluateMany = [call.method isEqualToString:@"evaluateMany"] &&
-                      sources != nil && variables != nil && source == nil;
-  if (!validate && !evaluate && !evaluateMany) {
-    result(FlutterMethodNotImplemented);
-    return;
+  NSDictionary *arguments =
+      [call.arguments isKindOfClass:[NSDictionary class]]
+          ? (NSDictionary *)call.arguments
+          : @{};
+  for (NSString *key in arguments) {
+    if (CelBridgeInvalidString(arguments[key])) {
+      result([FlutterError errorWithCode:@"invalid_request"
+                                 message:@"iOS CEL plugin arguments are invalid"
+                                 details:nil]);
+      return;
+    }
   }
+
+  NSString *environment = CelBridgeString(arguments, @"environment");
+  NSString *source = CelBridgeString(arguments, @"source");
+  NSString *sources = CelBridgeString(arguments, @"sources");
+  NSString *variables = CelBridgeString(arguments, @"variables");
+  NSString *options = CelBridgeString(arguments, @"options") ?: @"";
+  NSString *requests = CelBridgeString(arguments, @"requests");
+  NSString *programId = CelBridgeString(arguments, @"programId");
+  NSString *method = call.method;
 
   dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
     char *value = NULL;
-    if (validate) {
-      value = cel_bridge_validate([environment UTF8String], [source UTF8String]);
-    } else if (evaluateMany) {
+    if ([method isEqualToString:@"validate"] && environment != nil &&
+        source != nil) {
+      value = cel_bridge_validate_options(
+          [environment UTF8String], [source UTF8String], [options UTF8String]);
+    } else if ([method isEqualToString:@"evaluate"] && environment != nil &&
+               source != nil && variables != nil) {
+      value = cel_bridge_evaluate_options(
+          [environment UTF8String], [source UTF8String],
+          [variables UTF8String], [options UTF8String]);
+    } else if ([method isEqualToString:@"evaluateMany"] && environment != nil &&
+               sources != nil && variables != nil) {
       value = cel_bridge_evaluate_many(
           [environment UTF8String], [sources UTF8String],
           [variables UTF8String]);
+    } else if ([method isEqualToString:@"evaluateRequests"] &&
+               environment != nil && requests != nil) {
+      value = cel_bridge_evaluate_requests(
+          [environment UTF8String], [requests UTF8String],
+          [options UTF8String]);
+    } else if ([method isEqualToString:@"prepare"] && environment != nil &&
+               source != nil) {
+      value = cel_bridge_prepare(
+          [environment UTF8String], [source UTF8String], [options UTF8String]);
+    } else if ([method isEqualToString:@"evaluateProgram"] && programId != nil &&
+               variables != nil) {
+      value = cel_bridge_evaluate_program(
+          [programId UTF8String], [variables UTF8String],
+          [options UTF8String]);
+    } else if ([method isEqualToString:@"releaseProgram"] && programId != nil) {
+      value = cel_bridge_release_program([programId UTF8String]);
+    } else if ([method isEqualToString:@"create"]) {
+      value = cel_bridge_create([options UTF8String]);
     } else {
-      value = cel_bridge_evaluate(
-          [environment UTF8String], [source UTF8String],
-          [variables UTF8String]);
+      dispatch_async(dispatch_get_main_queue(), ^{
+        result(FlutterMethodNotImplemented);
+      });
+      return;
     }
     NSString *json = CelBridgeJSON(value);
     dispatch_async(dispatch_get_main_queue(), ^{

@@ -4,6 +4,9 @@ final class CelRuntimeInfo {
     required this.runtimeVersion,
     required this.celGoVersion,
     required this.features,
+    this.abiVersion,
+    this.profiles = const [],
+    this.limits = const {},
   });
 
   factory CelRuntimeInfo.fromJson(Object? json) {
@@ -23,6 +26,11 @@ final class CelRuntimeInfo {
             'runtime info.features.${entry.key}',
           ),
       },
+      abiVersion: value.containsKey('abiVersion')
+          ? _int(value['abiVersion'], 'abiVersion')
+          : null,
+      profiles: _stringList(value['profiles'], 'profiles'),
+      limits: _intMap(value['limits'], 'limits'),
     );
   }
 
@@ -30,6 +38,9 @@ final class CelRuntimeInfo {
   final String runtimeVersion;
   final String celGoVersion;
   final Map<String, bool> features;
+  final int? abiVersion;
+  final List<String> profiles;
+  final Map<String, int> limits;
 }
 
 Map<String, Object?> _object(Object? value, String name) {
@@ -61,4 +72,27 @@ bool _bool(Object? value, String name) {
     return value;
   }
   throw FormatException('$name must be a boolean');
+}
+
+List<String> _stringList(Object? value, String name) {
+  if (value == null) {
+    return const [];
+  }
+  if (value is! List) {
+    throw FormatException('$name must be a list');
+  }
+  return [for (final item in value) _string(item, '$name item')];
+}
+
+Map<String, int> _intMap(Object? value, String name) {
+  if (value == null) {
+    return const {};
+  }
+  if (value is! Map) {
+    throw FormatException('$name must be an object');
+  }
+  return {
+    for (final entry in value.entries)
+      entry.key.toString(): _int(entry.value, '$name.${entry.key}'),
+  };
 }

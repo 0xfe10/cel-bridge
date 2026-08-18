@@ -155,6 +155,49 @@ void main() {
     );
   });
 
+  test('decodes per-request batch and prepare acknowledgements', () {
+    const batch =
+        '{"protocolVersion":1,"ok":true,"result":['
+        '{"id":"ok","ok":true,"result":{"kind":"bool","value":true}},'
+        '{"id":"bad","ok":false,"error":{"code":"compile_error",'
+        '"message":"nope","issues":[]}}]}';
+    final results = decodeRequests(batch);
+    expect(results, hasLength(2));
+    expect(
+      ((results[0] as CelRequestSuccess).value as CelBoolValue).value,
+      isTrue,
+    );
+    expect((results[1] as CelRequestFailure).error.code, 'compile_error');
+
+    expect(
+      decodePrepare(
+        '{"protocolVersion":1,"ok":true,"result":{"programId":"prg_1"}}',
+      ),
+      'prg_1',
+    );
+    decodeAck('{"protocolVersion":1,"ok":true,"result":{"released":true}}');
+    expect(
+      decodeCreatedRuntime(
+        '{"protocolVersion":1,"runtimeVersion":"0.5.0",'
+        '"celGoVersion":"v0.31.0","features":{}}',
+      ).runtimeVersion,
+      packageVersion,
+    );
+    expect(
+      () => decodeCreatedRuntime(
+        '{"protocolVersion":1,"ok":false,"error":{"code":"invalid_request",'
+        '"message":"bad","issues":[]}}',
+      ),
+      throwsA(
+        isA<CelBridgeException>().having(
+          (e) => e.code,
+          'code',
+          'invalid_request',
+        ),
+      ),
+    );
+  });
+
   test('rejects malformed boolean response fields as protocol errors', () {
     for (final decode in [
       () => decodeEvaluation(

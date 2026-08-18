@@ -4,6 +4,8 @@ import (
 	"fmt"
 
 	"github.com/google/cel-go/cel"
+
+	"github.com/0xfe10/cel-bridge/runtime/internal/protocol"
 )
 
 type Environment struct {
@@ -16,6 +18,64 @@ type TypeSpec struct {
 	Element *TypeSpec
 	Key     *TypeSpec
 	Value   *TypeSpec
+}
+
+func (spec TypeSpec) Format() string {
+	switch spec.Name {
+	case "list":
+		if spec.Element == nil {
+			return "list<dyn>"
+		}
+		return "list<" + spec.Element.Format() + ">"
+	case "map":
+		key, value := "dyn", "dyn"
+		if spec.Key != nil {
+			key = spec.Key.Format()
+		}
+		if spec.Value != nil {
+			value = spec.Value.Format()
+		}
+		return "map<" + key + "," + value + ">"
+	default:
+		return spec.Name
+	}
+}
+
+func (spec TypeSpec) Equal(other TypeSpec) bool {
+	if spec.Name != other.Name {
+		return false
+	}
+	switch spec.Name {
+	case "list":
+		if spec.Element == nil || other.Element == nil {
+			return spec.Element == nil && other.Element == nil
+		}
+		return spec.Element.Equal(*other.Element)
+	case "map":
+		if spec.Key == nil || spec.Value == nil || other.Key == nil || other.Value == nil {
+			return spec.Key == nil && other.Key == nil && spec.Value == nil && other.Value == nil
+		}
+		return spec.Key.Equal(*other.Key) && spec.Value.Equal(*other.Value)
+	default:
+		return true
+	}
+}
+
+func (spec TypeSpec) ToRef() protocol.TypeRef {
+	ref := protocol.TypeRef{Type: spec.Name}
+	if spec.Element != nil {
+		element := spec.Element.ToRef()
+		ref.Element = &element
+	}
+	if spec.Key != nil {
+		key := spec.Key.ToRef()
+		ref.Key = &key
+	}
+	if spec.Value != nil {
+		value := spec.Value.ToRef()
+		ref.Value = &value
+	}
+	return ref
 }
 
 func (spec TypeSpec) CELType() (*cel.Type, error) {
