@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.1
+
+- Publish runtime artifacts with matching Web integrity metadata.
+
 ## 0.7.0
 
 - Encode `evaluateRequests` with shared-variable envelopes.

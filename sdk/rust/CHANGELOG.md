@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.1
+
+- Publish runtime artifacts built from the matching release source.
+
 ## 0.7.0
 
 - Encode `evaluate_requests` with shared-variable envelopes.

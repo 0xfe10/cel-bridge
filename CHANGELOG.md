@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.7.1
+
+- Rebuild release artifacts with the pinned Go toolchain and matching Web integrity metadata.
+- Use Flutter-aware dependency resolution in CI and release jobs.
+
 ## 0.7.0
 
 - Replace the `evaluateRequests` wire array with a required envelope containing
