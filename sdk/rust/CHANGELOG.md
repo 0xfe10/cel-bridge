@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.0
+
+- Consume the configurable-limits runtime release.
+
 ## 0.5.1
 
 - Point default runtime artifact downloads at the `v0.5.1` GitHub Release.

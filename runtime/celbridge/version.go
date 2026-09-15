@@ -5,7 +5,7 @@ import (
 	"github.com/0xfe10/cel-bridge/runtime/internal/runtime"
 )
 
-const version = "0.5.1"
+const version = "0.6.0"
 const celGoVersion = "v0.31.0"
 
 func Version() string {
@@ -28,6 +28,7 @@ func RuntimeInfo() string {
 			"perRequestBatch":    true,
 			"preparedPrograms":   true,
 			"deadlines":          true,
+			"configurableLimits": true,
 		},
 		Profiles: []string{runtime.ProfileDefault, runtime.ProfileSafe, runtime.ProfileTrusted},
 		Limits:   rt.Limits().Public(),

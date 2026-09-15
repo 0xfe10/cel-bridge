@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import '../cel_evaluation_request.dart';
+import '../cel_runtime_limits.dart';
 import '../cel_type.dart';
 import '../cel_value.dart';
 
@@ -32,11 +33,14 @@ String encodeRequestOptions({Object? expectedResultType, int? deadlineMs}) {
   });
 }
 
-String encodeCreateOptions({String? profile}) {
-  if (profile == null || profile.isEmpty) {
+String encodeCreateOptions({String? profile, CelRuntimeLimits? limits}) {
+  if ((profile == null || profile.isEmpty) && limits == null) {
     return '{}';
   }
-  return jsonEncode({'profile': profile});
+  return jsonEncode({
+    if (profile != null && profile.isNotEmpty) 'profile': profile,
+    if (limits != null) 'limits': limits.toJson(),
+  });
 }
 
 String encodeEvaluationRequests(List<CelEvaluationRequest> requests) {

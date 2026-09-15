@@ -43,9 +43,13 @@ final class CelRuntime {
     try {
       final runtimeBackend = await backend.createBackend(options);
       final profile = options.profile;
-      if (_needsCreate || (profile != null && profile.isNotEmpty)) {
+      if (_needsCreate ||
+          (profile != null && profile.isNotEmpty) ||
+          options.limits != null) {
         decodeCreatedRuntime(
-          await runtimeBackend.create(encodeCreateOptions(profile: profile)),
+          await runtimeBackend.create(
+            encodeCreateOptions(profile: profile, limits: options.limits),
+          ),
         );
         _needsCreate = false;
       }

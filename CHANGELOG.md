@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.6.0
+
+- Allow callers to override prepared-program, compiled-program, and batch
+  capacities independently from the selected safety profile.
+- Report the effective configured limits and configurable-limit capability in
+  runtime metadata.
+
 ## 0.5.1
 
 - Align install examples and example versions with the release tag.

@@ -1,19 +1,22 @@
-const packageVersion = '0.5.1';
+import 'cel_runtime_limits.dart';
+
+const packageVersion = '0.6.0';
 const wireProtocolVersion = 1;
 const _defaultWasmIntegrity =
-    'sha256-m7oRta6ZTZiIK0knb+IC7TNTKKiSMzij5rU4QEbOpgo=';
+    'sha256-29meuWQUmZekwVG34JiTftC/Ode2a7sP63syXSlhMaM=';
 const _defaultWasmExecIntegrity =
     'sha256-DJSfSZb5qJaY5LXFht4yJJw7abe6rbZNIgBzzASsuhQ=';
 
 final class CelRuntimeOptions {
   const CelRuntimeOptions({
     this.wasmUrl =
-        'https://github.com/0xfe10/cel-bridge/releases/download/v0.5.1/cel_bridge.wasm',
+        'https://github.com/0xfe10/cel-bridge/releases/download/v0.6.0/cel_bridge.wasm',
     this.wasmExecUrl =
-        'https://github.com/0xfe10/cel-bridge/releases/download/v0.5.1/wasm_exec.js',
+        'https://github.com/0xfe10/cel-bridge/releases/download/v0.6.0/wasm_exec.js',
     this.wasmIntegrity = _defaultWasmIntegrity,
     this.wasmExecIntegrity = _defaultWasmExecIntegrity,
     this.profile,
+    this.limits,
   });
 
   final String wasmUrl;
@@ -26,4 +29,5 @@ final class CelRuntimeOptions {
   /// When set, initialization replaces the process-wide Go runtime. After
   /// [CelRuntime.dispose], the next [CelRuntime.initialize] recreates it.
   final String? profile;
+  final CelRuntimeLimits? limits;
 }

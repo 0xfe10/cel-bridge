@@ -96,7 +96,8 @@ func ParseCreateOptions(raw string) (string, Limits, error) {
 		decoder := json.NewDecoder(strings.NewReader(trimmed))
 		decoder.DisallowUnknownFields()
 		var parsed struct {
-			Profile string `json:"profile"`
+			Profile string          `json:"profile"`
+			Limits  *LimitOverrides `json:"limits"`
 		}
 		if err := decoder.Decode(&parsed); err != nil {
 			return "", Limits{}, fmt.Errorf("invalid runtime options: %w", err)
@@ -107,12 +108,51 @@ func ParseCreateOptions(raw string) (string, Limits, error) {
 		if parsed.Profile != "" {
 			profile = parsed.Profile
 		}
+		limits, err := LimitsForProfile(profile)
+		if err != nil {
+			return "", Limits{}, err
+		}
+		if parsed.Limits != nil {
+			if err := parsed.Limits.Apply(&limits); err != nil {
+				return "", Limits{}, err
+			}
+		}
+		return profile, limits, nil
 	}
 	limits, err := LimitsForProfile(profile)
 	if err != nil {
 		return "", Limits{}, err
 	}
 	return profile, limits, nil
+}
+
+// LimitOverrides contains resource limits callers may tune independently from
+// the selected evaluation-safety profile.
+type LimitOverrides struct {
+	MaxCompiledPrograms *int `json:"maxCompiledPrograms"`
+	MaxBatchExpressions *int `json:"maxBatchExpressions"`
+	MaxPreparedPrograms *int `json:"maxPreparedPrograms"`
+}
+
+func (o LimitOverrides) Apply(limits *Limits) error {
+	if err := applyPositiveOverride("maxCompiledPrograms", o.MaxCompiledPrograms, &limits.MaxCompiledPrograms); err != nil {
+		return err
+	}
+	if err := applyPositiveOverride("maxBatchExpressions", o.MaxBatchExpressions, &limits.MaxBatchExpressions); err != nil {
+		return err
+	}
+	return applyPositiveOverride("maxPreparedPrograms", o.MaxPreparedPrograms, &limits.MaxPreparedPrograms)
+}
+
+func applyPositiveOverride(name string, value *int, target *int) error {
+	if value == nil {
+		return nil
+	}
+	if *value <= 0 {
+		return fmt.Errorf("runtime limit %s must be positive", name)
+	}
+	*target = *value
+	return nil
 }
 
 func (l Limits) Public() map[string]int {

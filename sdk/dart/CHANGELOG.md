@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.0
+
+- Add `CelRuntimeLimits` overrides for compiled programs, prepared programs,
+  and per-request batch size.
+
 ## 0.5.1
 
 - Point default Web artifacts at the `v0.5.1` GitHub Release.
