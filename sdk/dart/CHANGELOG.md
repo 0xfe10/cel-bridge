@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.0
+
+- Encode `evaluateRequests` with shared-variable envelopes.
+- Automatically split logical request lists using runtime count and byte limits.
+- Preserve one deadline across all physical batches and expose error details.
+
 ## 0.6.1
 
 - Add `CelRuntimeLimits` overrides for compiled programs, prepared programs,

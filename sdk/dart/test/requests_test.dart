@@ -138,13 +138,34 @@ void main() {
     );
   });
 
+  test('evaluateRequests rejects a negative deadline', () async {
+    final runtime = await CelRuntime.initialize();
+    expect(
+      () => runtime.evaluateRequests(
+        environment: _environment,
+        requests: const [CelEvaluationRequest(id: 'one', source: 'true')],
+        deadlineMs: -1,
+      ),
+      throwsA(
+        isA<CelBridgeException>().having(
+          (error) => error.code,
+          'code',
+          'invalid_request',
+        ),
+      ),
+    );
+  });
+
   test('runtime info reports ABI capabilities', () async {
     final runtime = await CelRuntime.initialize();
     expect(runtime.info.abiVersion, 4);
     expect(runtime.info.features['perRequestBatch'], isTrue);
     expect(runtime.info.features['preparedPrograms'], isTrue);
     expect(runtime.info.features['deadlines'], isTrue);
+    expect(runtime.info.features['sharedRequestVariables'], isTrue);
+    expect(runtime.info.features['adaptiveRequestBatches'], isTrue);
     expect(runtime.info.profiles, containsAll(['default', 'safe', 'trusted']));
     expect(runtime.info.limits['maxBatchSize'], 256);
+    expect(runtime.info.limits['maxBatchRequestBytes'], greaterThan(0));
   });
 }

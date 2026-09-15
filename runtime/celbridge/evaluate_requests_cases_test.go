@@ -41,7 +41,14 @@ func TestSharedEvaluateRequestsCases(t *testing.T) {
 	}
 	for _, testCase := range cases {
 		t.Run(testCase.Name, func(t *testing.T) {
-			response := decode(t, EvaluateRequests(string(testCase.Environment), string(testCase.Requests)))
+			envelope, err := json.Marshal(map[string]any{
+				"sharedVariables": map[string]any{},
+				"requests":        testCase.Requests,
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			response := decode(t, EvaluateRequests(string(testCase.Environment), string(envelope)))
 			if !testCase.OK {
 				if response["ok"] != false || response["error"].(map[string]any)["code"] != testCase.ExpectedCode {
 					t.Fatalf("expected error %q, got %#v", testCase.ExpectedCode, response)

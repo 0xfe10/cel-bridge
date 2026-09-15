@@ -8,7 +8,7 @@ import 'package:code_assets/code_assets.dart';
 import 'package:crypto/crypto.dart';
 import 'package:hooks/hooks.dart';
 
-const _runtimeVersion = '0.6.1';
+const _runtimeVersion = '0.7.0';
 const _protocolVersion = 1;
 const _defaultReleaseBase =
     'https://github.com/0xfe10/cel-bridge/releases/download/v$_runtimeVersion';
@@ -312,8 +312,12 @@ Future<void> _buildFromSource(
 ) async {
   final go = await Process.run('go', ['version']);
   final version = '${go.stdout}\n${go.stderr}';
-  if (!RegExp(r'go1\.26(?:\.|\s)').hasMatch(version)) {
-    throw StateError('source build requires Go 1.26; got ${version.trim()}');
+  final match = RegExp(r'go1\.(\d+)').firstMatch(version);
+  final minor = int.tryParse(match?.group(1) ?? '');
+  if (minor == null || minor < 26) {
+    throw StateError(
+      'source build requires Go 1.26 or newer; got ${version.trim()}',
+    );
   }
   final staticLinking = target.staticLinking;
   final androidCompiler = target.goos == 'android'
@@ -332,6 +336,8 @@ Future<void> _buildFromSource(
       'build',
       '-trimpath',
       '-buildmode=${staticLinking ? 'c-archive' : 'c-shared'}',
+      if (target.os == OS.macOS && !staticLinking)
+        '-ldflags=-extldflags=-Wl,-headerpad_max_install_names',
       '-o',
       assetPath.toFilePath(),
       './runtime/cmd/native',

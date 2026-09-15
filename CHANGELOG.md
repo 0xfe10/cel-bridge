@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.7.0
+
+- Replace the `evaluateRequests` wire array with a required envelope containing
+  `sharedVariables` and `requests`; legacy array payloads are rejected.
+- Make Dart and Rust SDKs hoist equal top-level variables without interpreting
+  their names, then split logical request lists by runtime count and UTF-8 byte
+  limits while preserving order and the overall deadline.
+- Expose exact batch request/source byte limits and stable structured payload
+  errors.
+
 ## 0.6.1
 
 - Allow callers to override prepared-program, compiled-program, and batch
@@ -12,14 +22,14 @@
 
 - Align install examples and example versions with the release tag.
 - Expand shared CEL fixtures for values, macros, errors, and `evaluateRequests`.
-- Document that Aviary keeps its own cross-language business fixtures.
+- Document that calling applications keep their own cross-language business fixtures.
 
 ## 0.5.0
 
 - Validation now returns a stable `resultType`.
 - Added optional `expectedResultType` for validate and evaluate.
 - Added `result_type_mismatch` without coercing or defaulting values.
-- Generic variable names are uninterpreted; Aviary scopes stay outside the runtime.
+- Generic variable names are uninterpreted; application scopes stay outside the runtime.
 - Added per-request `evaluateRequests` / `EvaluateRequests` with independent variables.
 - Added prepared programs: `prepare`, `evaluateProgram`, and `releaseProgram`.
 - Added wall-clock `deadlineMs`, runtime profiles, compile singleflight, and `Close`/`Create`.

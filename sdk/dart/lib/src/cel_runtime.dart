@@ -166,20 +166,63 @@ final class CelRuntime {
     int? deadlineMs,
   }) async {
     _ensureOpen();
-    _validateRequests(requests, _maxBatchExpressions);
+    _validateRequests(requests);
+    _validateDeadline(deadlineMs);
     if (requests.isEmpty) {
       return const [];
     }
     try {
-      final raw = await _backend.evaluateRequests(
-        encodeEnvironment(environment),
-        encodeEvaluationRequests(requests),
-        encodeRequestOptions(
-          expectedResultType: expectedResultType,
-          deadlineMs: deadlineMs,
-        ),
+      final stopwatch = deadlineMs == null ? null : (Stopwatch()..start());
+      final batches = encodeEvaluationRequestBatches(
+        requests,
+        maxRequestCount: _maxBatchExpressions,
+        maxRequestBytes: _maxBatchRequestBytes,
+        maxSourceBytes: _maxBatchSourceBytes,
       );
-      return decodeRequests(raw);
+      final environmentJson = encodeEnvironment(environment);
+      final results = <CelRequestResult>[];
+      var requestOffset = 0;
+      for (final batch in batches) {
+        final elapsed = stopwatch?.elapsedMilliseconds ?? 0;
+        if (deadlineMs != null && elapsed >= deadlineMs && requestOffset > 0) {
+          for (final request in requests.skip(requestOffset)) {
+            results.add(
+              CelRequestFailure(
+                request.id,
+                const CelBridgeException(
+                  code: 'deadline_exceeded',
+                  message: 'evaluation deadline exceeded',
+                ),
+              ),
+            );
+          }
+          break;
+        }
+        final remainingDeadline = deadlineMs == null
+            ? null
+            : (deadlineMs - elapsed).clamp(0, deadlineMs);
+        final raw = await _backend.evaluateRequests(
+          environmentJson,
+          batch.payload,
+          encodeRequestOptions(
+            expectedResultType: expectedResultType,
+            deadlineMs: remainingDeadline,
+          ),
+        );
+        results.addAll(decodeRequests(raw));
+        requestOffset += batch.requestCount;
+      }
+      return results;
+    } on CelRequestPayloadTooLarge catch (error) {
+      throw CelBridgeException(
+        code: 'request_payload_too_large',
+        message: 'request ${error.id} exceeds ${error.maxBytes} bytes',
+        details: {
+          'actualBytes': error.actualBytes,
+          'maxBytes': error.maxBytes,
+          'retryable': false,
+        },
+      );
     } on CelBridgeException {
       rethrow;
     } catch (error) {
@@ -291,18 +334,15 @@ final class CelRuntime {
         ? configured
         : defaultMaxBatchExpressions;
   }
+
+  int get _maxBatchRequestBytes =>
+      info.limits['maxBatchRequestBytes'] ?? 2 * 1024 * 1024 + 4096;
+
+  int get _maxBatchSourceBytes =>
+      info.limits['maxBatchSourceBytes'] ?? 1024 * 1024;
 }
 
-void _validateRequests(
-  List<CelEvaluationRequest> requests,
-  int maxBatchExpressions,
-) {
-  if (requests.length > maxBatchExpressions) {
-    throw CelBridgeException(
-      code: 'invalid_request',
-      message: 'batch exceeds $maxBatchExpressions expressions',
-    );
-  }
+void _validateRequests(List<CelEvaluationRequest> requests) {
   final seen = <String>{};
   for (final request in requests) {
     _rejectNul(request.id, 'id');
@@ -334,6 +374,15 @@ void _validateRequests(
     if (hasProgram) {
       _rejectNul(request.programId!, 'programId');
     }
+  }
+}
+
+void _validateDeadline(int? deadlineMs) {
+  if (deadlineMs != null && deadlineMs < 0) {
+    throw const CelBridgeException(
+      code: 'invalid_request',
+      message: 'deadlineMs must be non-negative',
+    );
   }
 }
 

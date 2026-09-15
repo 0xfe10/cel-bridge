@@ -25,8 +25,7 @@ performs the repository-level structural check used by CI.
 These fixtures are the generic CEL and runtime contract. Identifiers such as
 `age`, `enabled`, and `count` are uninterpreted. Product schemas, default
 values, publication snapshots, and visibility rules belong in the calling
-application. Aviary must keep its own cross-Rust/Dart business fixtures; it
-may reuse this JSON shape, but those cases do not belong in cel-bridge.
+application.
 
 ## Requests
 
@@ -34,9 +33,23 @@ The native and Wasm APIs accept UTF-8 JSON strings. A validation request needs
 an environment and CEL source. An evaluation request additionally needs a JSON
 object containing variables. `cel_bridge_evaluate_many` accepts a JSON array of
 source strings with one shared environment and one shared variables object.
-`cel_bridge_evaluate_requests` accepts a JSON array of `{id, source|programId,
-variables, expectedResultType?}` objects; each item has its own variables.
-Duplicate or empty ids fail the whole batch with `invalid_request`.
+`cel_bridge_evaluate_requests` accepts only this envelope in `0.7.0`:
+
+```json
+{
+  "sharedVariables": {"context": {"region": "north"}},
+  "requests": [
+    {"id": "one", "source": "value > 0", "variables": {"value": 1}},
+    {"id": "two", "source": "value > 0", "variables": {"value": 2}}
+  ]
+}
+```
+
+`sharedVariables` and every request's `variables` must be JSON objects. They
+are merged shallowly for each evaluation; request values override shared values.
+The bridge treats all keys as opaque. It never recognizes or creates product
+fields. Duplicate or empty ids fail the whole physical batch with
+`invalid_request`. The legacy top-level JSON array is intentionally rejected.
 
 Optional request options may be passed to `cel_bridge_validate_options`,
 `cel_bridge_evaluate_options`, `cel_bridge_evaluate_requests`,
@@ -57,6 +70,13 @@ per-source size errors stay attached to the matching item.
 nested protocol envelopes. Per-item compile or evaluation failures do not cancel
 siblings. A wall-clock `deadlineMs` of `0` fails items that have not started
 with `deadline_exceeded`; in-flight `cel-go` evaluation is not interrupted.
+
+The Dart and Rust SDKs accept one logical request list. They automatically find
+equal top-level variable values, move them into `sharedVariables`, and split the
+list into physical envelopes using `maxBatchSize`, `maxBatchSourceBytes`, and
+`maxBatchRequestBytes`. Result order and ids remain those of the logical call.
+The supplied deadline covers the whole logical call rather than restarting for
+each physical envelope.
 
 Prepared programs are created with `cel_bridge_prepare` (`{programId}`),
 evaluated with `cel_bridge_evaluate_program`, and released with
@@ -196,7 +216,8 @@ and must not be used for program control.
   "error": {
     "code": "evaluation_error",
     "message": "...",
-    "issues": []
+    "issues": [],
+    "details": {}
   }
 }
 ```
@@ -225,6 +246,8 @@ Known response error codes include:
 - `runtime_closed`
 - `source_too_large`
 - `variables_too_large`
+- `batch_payload_too_large`
+- `request_payload_too_large`
 - `output_too_large`
 - `unsupported_value`
 - `protocol_mismatch`

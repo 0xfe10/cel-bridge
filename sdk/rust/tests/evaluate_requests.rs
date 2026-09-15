@@ -61,3 +61,26 @@ fn matches_shared_evaluate_requests_cases() {
         }
     }
 }
+
+#[test]
+fn rejects_negative_request_deadline() {
+    let runtime = CelRuntime::new().expect("runtime should link");
+    let requests = vec![EvaluationRequest {
+        id: "one".into(),
+        source: Some("true".into()),
+        program_id: None,
+        variables: serde_json::json!({}),
+        expected_result_type: None,
+    }];
+    let error = runtime
+        .evaluate_requests(
+            &serde_json::json!({"schemaVersion": 1, "variables": {}}),
+            &requests,
+            RequestOptions {
+                expected_result_type: None,
+                deadline_ms: Some(-1),
+            },
+        )
+        .expect_err("negative deadline should fail");
+    assert_eq!(error.code, "invalid_request");
+}

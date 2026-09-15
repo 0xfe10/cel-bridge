@@ -19,6 +19,7 @@ type Limits struct {
 	MaxCachedEnvironments int
 	MaxBatchExpressions   int
 	MaxBatchSourceBytes   int
+	MaxBatchRequestBytes  int
 	MaxPreparedPrograms   int
 }
 
@@ -41,6 +42,7 @@ var DefaultLimits = Limits{
 	MaxCachedEnvironments: 32,
 	MaxBatchExpressions:   256,
 	MaxBatchSourceBytes:   1024 * 1024,
+	MaxBatchRequestBytes:  2*1024*1024 + 4096,
 	MaxPreparedPrograms:   256,
 }
 
@@ -57,6 +59,7 @@ var SafeLimits = Limits{
 	MaxCachedEnvironments: 8,
 	MaxBatchExpressions:   32,
 	MaxBatchSourceBytes:   64 * 1024,
+	MaxBatchRequestBytes:  128*1024 + 4096,
 	MaxPreparedPrograms:   32,
 }
 
@@ -73,6 +76,7 @@ var TrustedLimits = Limits{
 	MaxCachedEnvironments: 64,
 	MaxBatchExpressions:   256,
 	MaxBatchSourceBytes:   4 * 1024 * 1024,
+	MaxBatchRequestBytes:  8*1024*1024 + 4096,
 	MaxPreparedPrograms:   1024,
 }
 
@@ -167,6 +171,8 @@ func (l Limits) Public() map[string]int {
 		"maxCompiledPrograms":   l.MaxCompiledPrograms,
 		"maxCachedEnvironments": l.MaxCachedEnvironments,
 		"maxBatchSize":          l.MaxBatchExpressions,
+		"maxBatchSourceBytes":   l.MaxBatchSourceBytes,
+		"maxBatchRequestBytes":  l.MaxBatchRequestBytes,
 		"maxPreparedPrograms":   l.MaxPreparedPrograms,
 	}
 }

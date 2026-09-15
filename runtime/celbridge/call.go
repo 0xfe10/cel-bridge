@@ -44,7 +44,7 @@ func Call(requestJSON string) string {
 	case "evaluateMany":
 		return EvaluateMany(environment, rawOrArray(request.Sources), variables)
 	case "evaluateRequests":
-		return EvaluateRequests(environment, rawOrArray(request.Requests), options)
+		return EvaluateRequests(environment, rawOrObject(request.Requests), options)
 	case "prepare":
 		return Prepare(environment, request.Source, options)
 	case "evaluateProgram":

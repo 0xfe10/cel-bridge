@@ -14,9 +14,10 @@ type Response struct {
 }
 
 type BridgeError struct {
-	Code    string  `json:"code"`
-	Message string  `json:"message"`
-	Issues  []Issue `json:"issues"`
+	Code    string         `json:"code"`
+	Message string         `json:"message"`
+	Issues  []Issue        `json:"issues"`
+	Details map[string]any `json:"details,omitempty"`
 }
 
 type ValidationResult struct {
@@ -95,6 +96,19 @@ func Failure(code, message string, issues ...Issue) Response {
 		ProtocolVersion: Version,
 		OK:              false,
 		Error:           &BridgeError{Code: code, Message: message, Issues: issues},
+	}
+}
+
+func FailureWithDetails(code, message string, details map[string]any) Response {
+	return Response{
+		ProtocolVersion: Version,
+		OK:              false,
+		Error: &BridgeError{
+			Code:    code,
+			Message: message,
+			Issues:  []Issue{},
+			Details: details,
+		},
 	}
 }
 

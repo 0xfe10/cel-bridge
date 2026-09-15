@@ -159,40 +159,60 @@ func (r *Runtime) Evaluate(environmentJSON, source, variablesJSON string, option
 }
 
 func (r *Runtime) evaluateInternal(environmentJSON, source, variablesJSON string, options celtype.Options) protocol.Response {
-	if err := r.validateSource(source); err != nil {
-		return protocol.Failure(errorCode(err), err.Error())
-	}
-	celEnvironment, fail, ok := r.envFor(environmentJSON)
+	celEnvironment, fail, ok := r.prepareEvaluation(environmentJSON, source, options.Expected)
 	if !ok {
 		return fail
-	}
-	if options.Expected != nil {
-		ast, issues := celEnvironment.Parse(source)
-		if issues.Err() != nil {
-			return protocol.Failure("parse_error", issues.String(), convertIssues(issues, r.limits.MaxIssues)...)
-		}
-		ast, issues = celEnvironment.Check(ast)
-		if issues.Err() != nil {
-			return protocol.Failure("compile_error", issues.String(), convertIssues(issues, r.limits.MaxIssues)...)
-		}
-		resultType := celtype.FromCEL(ast.OutputType())
-		compatible, _ := celtype.Compatible(resultType, *options.Expected)
-		if !compatible {
-			return protocol.Failure(
-				"result_type_mismatch",
-				celtype.StaticMismatchMessage(options.Expected.Format(), resultType.Format()),
-			)
-		}
 	}
 	variables, err := r.decodeVariables(variablesJSON)
 	if err != nil {
 		return variableError(err, len(variablesJSON), r.limits.MaxVariablesBytes)
 	}
+	return r.evaluateCompiled(celEnvironment, environmentJSON, source, variables, options.Expected)
+}
+
+func (r *Runtime) evaluateInternalVariables(environmentJSON, source string, variables map[string]any, expected *environment.TypeSpec) protocol.Response {
+	celEnvironment, fail, ok := r.prepareEvaluation(environmentJSON, source, expected)
+	if !ok {
+		return fail
+	}
+	return r.evaluateCompiled(celEnvironment, environmentJSON, source, variables, expected)
+}
+
+func (r *Runtime) prepareEvaluation(environmentJSON, source string, expected *environment.TypeSpec) (*cel.Env, protocol.Response, bool) {
+	if err := r.validateSource(source); err != nil {
+		return nil, protocol.Failure(errorCode(err), err.Error()), false
+	}
+	celEnvironment, fail, ok := r.envFor(environmentJSON)
+	if !ok {
+		return nil, fail, false
+	}
+	if expected != nil {
+		ast, issues := celEnvironment.Parse(source)
+		if issues.Err() != nil {
+			return nil, protocol.Failure("parse_error", issues.String(), convertIssues(issues, r.limits.MaxIssues)...), false
+		}
+		ast, issues = celEnvironment.Check(ast)
+		if issues.Err() != nil {
+			return nil, protocol.Failure("compile_error", issues.String(), convertIssues(issues, r.limits.MaxIssues)...), false
+		}
+		resultType := celtype.FromCEL(ast.OutputType())
+		compatible, _ := celtype.Compatible(resultType, *expected)
+		if !compatible {
+			return nil, protocol.Failure(
+				"result_type_mismatch",
+				celtype.StaticMismatchMessage(expected.Format(), resultType.Format()),
+			), false
+		}
+	}
+	return celEnvironment, protocol.Response{}, true
+}
+
+func (r *Runtime) evaluateCompiled(celEnvironment *cel.Env, environmentJSON, source string, variables map[string]any, expected *environment.TypeSpec) protocol.Response {
 	program, fail, ok := r.getOrCompile(celEnvironment, environmentJSON, source)
 	if !ok {
 		return fail
 	}
-	return r.evalProgram(program, variables, options.Expected)
+	return r.evalProgram(program, variables, expected)
 }
 
 func (r *Runtime) EvaluateMany(environmentJSON, sourcesJSON, variablesJSON string) (response protocol.Response) {

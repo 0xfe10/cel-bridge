@@ -169,6 +169,14 @@ void main() {
     );
     expect((results[1] as CelRequestFailure).error.code, 'compile_error');
 
+    final detailed = decodeRequests(
+      '{"protocolVersion":1,"ok":true,"result":['
+      '{"id":"large","ok":false,"error":{"code":"variables_too_large",'
+      '"message":"too large","issues":[],"details":{'
+      '"actualBytes":10,"maxBytes":8,"retryable":false}}}]}',
+    );
+    expect((detailed.single as CelRequestFailure).error.details['maxBytes'], 8);
+
     expect(
       decodePrepare(
         '{"protocolVersion":1,"ok":true,"result":{"programId":"prg_1"}}',

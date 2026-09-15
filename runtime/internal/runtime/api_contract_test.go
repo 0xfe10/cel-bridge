@@ -12,10 +12,10 @@ func TestEvaluateRequestsIndependentVariables(t *testing.T) {
 	runtime := New(DefaultLimits)
 	response := runtime.EvaluateRequests(
 		`{"schemaVersion":1,"variables":{"enabled":{"type":"bool"},"count":{"type":"int"}}}`,
-		`[
-		  {"id":"condition-1","source":"enabled && count > 0","variables":{"enabled":true,"count":2},"expectedResultType":"bool"},
+		`{"sharedVariables":{"enabled":true},"requests":[
+		  {"id":"condition-1","source":"enabled && count > 0","variables":{"count":2},"expectedResultType":"bool"},
 		  {"id":"condition-2","source":"count == 0","variables":{"enabled":false,"count":0},"expectedResultType":"bool"}
-		]`,
+		]}`,
 		"",
 	)
 	if !response.OK {
@@ -34,11 +34,11 @@ func TestEvaluateRequestsPartialFailureKeepsOrder(t *testing.T) {
 	runtime := New(DefaultLimits)
 	response := runtime.EvaluateRequests(
 		`{"schemaVersion":1,"variables":{"age":{"type":"int"}}}`,
-		`[
-		  {"id":"ok","source":"age >= 18","variables":{"age":20}},
-		  {"id":"bad","source":"missing == 1","variables":{"age":20}},
-		  {"id":"later","source":"age >= 21","variables":{"age":20}}
-		]`,
+		`{"sharedVariables":{"age":20},"requests":[
+		  {"id":"ok","source":"age >= 18","variables":{}},
+		  {"id":"bad","source":"missing == 1","variables":{}},
+		  {"id":"later","source":"age >= 21","variables":{}}
+		]}`,
 		"",
 	)
 	results := requestResults(t, response)
@@ -54,11 +54,59 @@ func TestEvaluateRequestsRejectsDuplicateIDs(t *testing.T) {
 	runtime := New(DefaultLimits)
 	response := runtime.EvaluateRequests(
 		`{"schemaVersion":1,"variables":{}}`,
-		`[{"id":"a","source":"true","variables":{}},{"id":"a","source":"false","variables":{}}]`,
+		`{"sharedVariables":{},"requests":[{"id":"a","source":"true","variables":{}},{"id":"a","source":"false","variables":{}}]}`,
 		"",
 	)
 	if response.OK || response.Error == nil || response.Error.Code != "invalid_request" {
 		t.Fatalf("expected invalid_request: %#v", response)
+	}
+}
+
+func TestEvaluateRequestsRejectsLegacyArrayPayload(t *testing.T) {
+	runtime := New(DefaultLimits)
+	response := runtime.EvaluateRequests(
+		`{"schemaVersion":1,"variables":{}}`,
+		`[{"id":"a","source":"true","variables":{}}]`,
+		"",
+	)
+	if response.OK || response.Error == nil || response.Error.Code != "invalid_request" {
+		t.Fatalf("expected invalid_request: %#v", response)
+	}
+}
+
+func TestEvaluateRequestsRequiresEnvelopeFields(t *testing.T) {
+	runtime := New(DefaultLimits)
+	for name, payload := range map[string]string{
+		"missing sharedVariables": `{"requests":[]}`,
+		"null sharedVariables":    `{"sharedVariables":null,"requests":[]}`,
+		"missing requests":        `{"sharedVariables":{}}`,
+		"null requests":           `{"sharedVariables":{},"requests":null}`,
+		"missing item variables":  `{"sharedVariables":{},"requests":[{"id":"a","source":"true"}]}`,
+		"null item variables":     `{"sharedVariables":{},"requests":[{"id":"a","source":"true","variables":null}]}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			response := runtime.EvaluateRequests(`{"schemaVersion":1,"variables":{}}`, payload, "")
+			if response.OK || response.Error == nil || response.Error.Code != "invalid_request" {
+				t.Fatalf("expected invalid_request: %#v", response)
+			}
+		})
+	}
+}
+
+func TestEvaluateRequestsReportsBatchPayloadDetails(t *testing.T) {
+	limits := DefaultLimits
+	limits.MaxBatchRequestBytes = 32
+	runtime := New(limits)
+	response := runtime.EvaluateRequests(
+		`{"schemaVersion":1,"variables":{}}`,
+		`{"sharedVariables":{},"requests":[{"id":"a","source":"true","variables":{}}]}`,
+		"",
+	)
+	if response.OK || response.Error == nil || response.Error.Code != "batch_payload_too_large" {
+		t.Fatalf("expected batch_payload_too_large: %#v", response)
+	}
+	if response.Error.Details["retryable"] != true || response.Error.Details["maxBytes"] != 32 {
+		t.Fatalf("missing payload details: %#v", response.Error.Details)
 	}
 }
 
@@ -156,11 +204,10 @@ func TestEvaluateRequestsUsesPreparedProgram(t *testing.T) {
 		`{"expectedResultType":"bool"}`,
 	)
 	id := prepared.Result.(protocol.PrepareResult).ProgramID
-	payload, _ := json.Marshal([]map[string]any{{
-		"id":        "one",
-		"programId": id,
-		"variables": map[string]any{"n": 2},
-	}})
+	payload, _ := json.Marshal(map[string]any{
+		"sharedVariables": map[string]any{"n": 2},
+		"requests":        []map[string]any{{"id": "one", "programId": id, "variables": map[string]any{}}},
+	})
 	response := runtime.EvaluateRequests(`{"schemaVersion":1,"variables":{"n":{"type":"int"}}}`, string(payload), "")
 	results := requestResults(t, response)
 	if len(results) != 1 || !results[0].OK {
@@ -172,7 +219,7 @@ func TestEvaluateRequestsUsesBatchExpectedType(t *testing.T) {
 	runtime := New(DefaultLimits)
 	response := runtime.EvaluateRequests(
 		`{"schemaVersion":1,"variables":{"n":{"type":"int"}}}`,
-		`[{"id":"one","source":"n > 0","variables":{"n":2}}]`,
+		`{"sharedVariables":{"n":2},"requests":[{"id":"one","source":"n > 0","variables":{}}]}`,
 		`{"expectedResultType":"bool"}`,
 	)
 	results := requestResults(t, response)

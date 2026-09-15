@@ -5,6 +5,7 @@ final class CelBridgeException implements Exception {
     required this.code,
     required this.message,
     this.issues = const [],
+    this.details = const {},
   });
 
   factory CelBridgeException.fromJson(Object? json) {
@@ -19,12 +20,18 @@ final class CelBridgeException implements Exception {
       issues: rawIssues is List
           ? [for (final issue in rawIssues) CelIssue.fromJson(issue)]
           : const [],
+      details: value['details'] is Map
+          ? (value['details'] as Map).map(
+              (key, value) => MapEntry(key.toString(), value),
+            )
+          : const {},
     );
   }
 
   final String code;
   final String message;
   final List<CelIssue> issues;
+  final Map<String, Object?> details;
 
   @override
   String toString() => 'CelBridgeException($code): $message';

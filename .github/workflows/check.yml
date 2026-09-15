@@ -58,7 +58,7 @@ jobs:
       - name: Check Dart SDK
         working-directory: sdk/dart
         run: |
-          dart pub get
+          flutter pub get
           dart format --output=none --set-exit-if-changed .
           dart analyze
           dart test
@@ -67,7 +67,7 @@ jobs:
       - name: Check Dart CLI example
         working-directory: examples/dart-cli
         run: |
-          dart pub get
+          flutter pub get
           dart analyze
           dart run
 
@@ -100,7 +100,7 @@ jobs:
       - name: Check build tools
         working-directory: tools
         run: |
-          dart pub get
+          flutter pub get
           dart format --output=none --set-exit-if-changed .
           dart analyze
           dart test
@@ -228,7 +228,7 @@ jobs:
         if: matrix.name == 'linux'
         working-directory: tools
         run: |
-          dart pub get
+          flutter pub get
           dart run bin/build_artifact.dart \
             --target linux-x86_64-dynamic --output ../build/artifacts
           CC=aarch64-linux-gnu-gcc \
@@ -262,7 +262,7 @@ jobs:
       - name: Run Linux tests last
         if: matrix.name == 'linux'
         run: |
-          (cd examples/dart-cli && dart pub get && dart run)
+          (cd examples/dart-cli && flutter pub get && dart run)
           (cd examples/flutter-app && flutter test)
           CEL_BRIDGE_BUILD_FROM_SOURCE=1 \
             cargo test --manifest-path sdk/rust/Cargo.toml
@@ -275,7 +275,7 @@ jobs:
         if: matrix.name == 'android'
         working-directory: tools
         run: |
-          dart pub get
+          flutter pub get
           for target in android-arm64-v8a android-armeabi-v7a android-x86_64; do
             case "$target" in
               android-arm64-v8a) compiler=aarch64-linux-android21-clang ;;
@@ -382,7 +382,7 @@ jobs:
         if: matrix.name == 'apple'
         working-directory: tools
         run: |
-          dart pub get
+          flutter pub get
           for target in macos-arm64-dynamic macos-x86_64-dynamic macos-arm64-static macos-x86_64-static; do
             dart run bin/build_artifact.dart \
               --target "$target" --output ../build/artifacts
@@ -459,7 +459,7 @@ jobs:
         if: matrix.name == 'windows'
         working-directory: tools
         run: |
-          dart pub get
+          flutter pub get
           dart run bin/build_artifact.dart \
             --target windows-x86_64 --output ../build/artifacts
 
@@ -482,7 +482,7 @@ jobs:
           dart run bin/verify_artifact.dart \
             --manifest ../build/artifacts/cel-bridge-manifest-v$(cat ../VERSION).json
           cd ../examples/dart-cli
-          dart pub get
+          flutter pub get
           dart run
           cd ../flutter-app/build/windows/x64/runner/Debug
           test -f cel_bridge.dll
@@ -491,7 +491,7 @@ jobs:
         if: matrix.name == 'web'
         working-directory: tools
         run: |
-          dart pub get
+          flutter pub get
           dart run bin/build_artifact.dart --target wasm --output ../build/artifacts
           dart run bin/verify_web_integrity.dart \
             --wasm ../build/artifacts/wasm/cel_bridge.wasm \

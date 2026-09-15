@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.0
+
+- Encode `evaluate_requests` with shared-variable envelopes.
+- Automatically split logical request lists using reported runtime limits.
+- Preserve one deadline across all physical batches and expose error details.
+
 ## 0.6.1
 
 - Consume the configurable-limits runtime release.

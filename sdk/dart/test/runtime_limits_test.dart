@@ -26,5 +26,25 @@ void main() {
       variables: const {},
     );
     expect(results, hasLength(257));
+
+    final requestResults = await runtime.evaluateRequests(
+      environment: const {
+        'schemaVersion': 1,
+        'variables': {
+          'n': {'type': 'int'},
+          'context': {'type': 'string'},
+        },
+      },
+      requests: [
+        for (var index = 0; index < 301; index++)
+          CelEvaluationRequest(
+            id: '$index',
+            source: 'n == $index && context == "shared"',
+            variables: {'n': index, 'context': 'shared'},
+          ),
+      ],
+    );
+    expect(requestResults, hasLength(301));
+    expect(requestResults, everyElement(isA<CelRequestSuccess>()));
   });
 }

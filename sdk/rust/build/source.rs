@@ -56,8 +56,10 @@ pub fn build(root: &Path, target: &Target, out_dir: &Path) -> Result<PathBuf, St
         String::from_utf8_lossy(&version.stdout),
         String::from_utf8_lossy(&version.stderr)
     );
-    if !version_text.contains("go1.26") {
-        return Err(format!("source build requires Go 1.26, got {version_text}"));
+    if !supported_go_version(&version_text) {
+        return Err(format!(
+            "source build requires Go 1.26 or newer, got {version_text}"
+        ));
     }
     let output = out_dir.join(target.library);
     let mode = if target.static_linking {
@@ -69,15 +71,12 @@ pub fn build(root: &Path, target: &Target, out_dir: &Path) -> Result<PathBuf, St
         .to_str()
         .ok_or_else(|| "invalid output path".to_string())?;
     let mut command = Command::new("go");
+    command.args(["build", "-trimpath", &format!("-buildmode={mode}")]);
+    if target.goos == "darwin" && !target.static_linking {
+        command.arg("-ldflags=-extldflags=-Wl,-headerpad_max_install_names");
+    }
     command
-        .args([
-            "build",
-            "-trimpath",
-            &format!("-buildmode={mode}"),
-            "-o",
-            output_name,
-            "./runtime/cmd/native",
-        ])
+        .args(["-o", output_name, "./runtime/cmd/native"])
         .current_dir(root)
         .env("CGO_ENABLED", "1")
         .env("GOOS", target.goos)
@@ -103,6 +102,20 @@ pub fn build(root: &Path, target: &Target, out_dir: &Path) -> Result<PathBuf, St
         create_windows_import_library(root, out_dir.join(import_library))?;
     }
     Ok(output)
+}
+
+fn supported_go_version(value: &str) -> bool {
+    let Some(version) = value
+        .split_whitespace()
+        .find_map(|part| part.strip_prefix("go1."))
+    else {
+        return false;
+    };
+    let minor = version
+        .split(|character: char| !character.is_ascii_digit())
+        .next()
+        .and_then(|value| value.parse::<u32>().ok());
+    minor.is_some_and(|minor| minor >= 26)
 }
 
 fn create_windows_import_library(root: &Path, output: PathBuf) -> Result<(), String> {

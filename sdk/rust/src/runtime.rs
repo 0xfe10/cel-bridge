@@ -3,10 +3,13 @@ use crate::ffi;
 use crate::value::CelValue;
 use crate::wire::{CelIssue, CelValidationResult};
 use serde_json::{Map, Value, json};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
+use std::time::Instant;
 
 const PROTOCOL_VERSION: u64 = 1;
-const MAX_BATCH_EXPRESSIONS: usize = 256;
+const DEFAULT_MAX_BATCH_EXPRESSIONS: usize = 256;
+const DEFAULT_MAX_BATCH_REQUEST_BYTES: usize = 2 * 1024 * 1024 + 4096;
+const DEFAULT_MAX_BATCH_SOURCE_BYTES: usize = 1024 * 1024;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CelRuntimeInfo {
@@ -19,7 +22,7 @@ pub struct CelRuntimeInfo {
     pub limits: BTreeMap<String, i64>,
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default)]
 pub struct RequestOptions<'a> {
     pub expected_result_type: Option<&'a Value>,
     pub deadline_ms: Option<i64>,
@@ -140,10 +143,11 @@ impl CelRuntime {
         sources: &[S],
         variables: &Value,
     ) -> Result<Vec<Result<CelValue, CelBridgeError>>, CelBridgeError> {
-        if sources.len() > MAX_BATCH_EXPRESSIONS {
+        let max_batch_expressions = self.limit("maxBatchSize", DEFAULT_MAX_BATCH_EXPRESSIONS);
+        if sources.len() > max_batch_expressions {
             return Err(CelBridgeError::new(
                 "invalid_request",
-                "batch exceeds 256 expressions",
+                format!("batch exceeds {max_batch_expressions} expressions"),
             ));
         }
         if sources.is_empty() {
@@ -170,16 +174,16 @@ impl CelRuntime {
         requests: &[EvaluationRequest],
         options: RequestOptions<'_>,
     ) -> Result<Vec<RequestResult>, CelBridgeError> {
-        if requests.len() > MAX_BATCH_EXPRESSIONS {
+        if options.deadline_ms.is_some_and(|deadline| deadline < 0) {
             return Err(CelBridgeError::new(
                 "invalid_request",
-                "batch exceeds 256 expressions",
+                "deadlineMs must be non-negative",
             ));
         }
         if requests.is_empty() {
             return Ok(Vec::new());
         }
-        let mut seen = std::collections::BTreeSet::new();
+        let mut seen = BTreeSet::new();
         for request in requests {
             if request.id.trim().is_empty() {
                 return Err(CelBridgeError::new(
@@ -208,18 +212,57 @@ impl CelRuntime {
                 ));
             }
         }
-        let payload = encode_json(&Value::Array(requests.iter().map(request_json).collect()))?;
+        let started = Instant::now();
+        let batches = encode_request_batches(
+            requests,
+            self.limit("maxBatchSize", DEFAULT_MAX_BATCH_EXPRESSIONS),
+            self.limit("maxBatchRequestBytes", DEFAULT_MAX_BATCH_REQUEST_BYTES),
+            self.limit("maxBatchSourceBytes", DEFAULT_MAX_BATCH_SOURCE_BYTES),
+        )?;
         let environment = encode_json(environment)?;
-        let options = encode_options(options)?;
-        let raw = ffi::evaluate_requests(&environment, &payload, &options)?;
-        let response = response(&raw)?;
-        if !response["ok"].as_bool().unwrap_or(false) {
-            return Err(error_from_response(&response));
+        let mut results = Vec::with_capacity(requests.len());
+        let mut request_offset = 0;
+        for (payload, request_count) in batches {
+            let elapsed = started.elapsed().as_millis().min(i64::MAX as u128) as i64;
+            if options
+                .deadline_ms
+                .is_some_and(|deadline| request_offset > 0 && elapsed >= deadline)
+            {
+                for request in &requests[request_offset..] {
+                    results.push(RequestResult {
+                        id: request.id.clone(),
+                        result: Err(CelBridgeError::new(
+                            "deadline_exceeded",
+                            "evaluation deadline exceeded",
+                        )),
+                    });
+                }
+                break;
+            }
+            let batch_options = RequestOptions {
+                expected_result_type: options.expected_result_type,
+                deadline_ms: options
+                    .deadline_ms
+                    .map(|deadline| (deadline - elapsed).max(0)),
+            };
+            let raw =
+                ffi::evaluate_requests(&environment, &payload, &encode_options(batch_options)?)?;
+            let response = response(&raw)?;
+            if !response["ok"].as_bool().unwrap_or(false) {
+                return Err(error_from_response(&response));
+            }
+            let items = response["result"].as_array().ok_or_else(|| {
+                CelBridgeError::new("protocol_mismatch", "request batch result must be a list")
+            })?;
+            results.extend(
+                items
+                    .iter()
+                    .map(decode_request_item)
+                    .collect::<Result<Vec<_>, _>>()?,
+            );
+            request_offset += request_count;
         }
-        let items = response["result"].as_array().ok_or_else(|| {
-            CelBridgeError::new("protocol_mismatch", "request batch result must be a list")
-        })?;
-        items.iter().map(decode_request_item).collect()
+        Ok(results)
     }
 
     pub fn prepare(
@@ -273,6 +316,109 @@ impl CelRuntime {
         };
         decode_created(&ffi::create(&options)?)
     }
+
+    fn limit(&self, name: &str, fallback: usize) -> usize {
+        self.info
+            .limits
+            .get(name)
+            .and_then(|value| usize::try_from(*value).ok())
+            .filter(|value| *value > 0)
+            .unwrap_or(fallback)
+    }
+}
+
+fn encode_request_batches(
+    requests: &[EvaluationRequest],
+    max_count: usize,
+    max_request_bytes: usize,
+    max_source_bytes: usize,
+) -> Result<Vec<(String, usize)>, CelBridgeError> {
+    let mut batches = Vec::new();
+    let mut offset = 0;
+    while offset < requests.len() {
+        let mut accepted = None;
+        let mut source_bytes = 0;
+        let mut source_limit_exceeded = false;
+        let max_end = (offset + max_count).min(requests.len());
+        for end in offset..max_end {
+            source_bytes += requests[end].source.as_deref().unwrap_or_default().len();
+            if source_bytes > max_source_bytes {
+                source_limit_exceeded = true;
+                break;
+            }
+            let payload = encode_request_envelope(&requests[offset..=end])?;
+            if payload.len() > max_request_bytes {
+                break;
+            }
+            accepted = Some((payload, end - offset + 1));
+        }
+        let Some((payload, count)) = accepted else {
+            let payload = encode_request_envelope(&requests[offset..=offset])?;
+            let (actual_bytes, max_bytes) = if source_limit_exceeded {
+                (
+                    requests[offset].source.as_deref().unwrap_or_default().len(),
+                    max_source_bytes,
+                )
+            } else {
+                (payload.len(), max_request_bytes)
+            };
+            return Err(CelBridgeError::with_details(
+                "request_payload_too_large",
+                format!("request {} exceeds {max_bytes} bytes", requests[offset].id),
+                BTreeMap::from([
+                    ("actualBytes".into(), json!(actual_bytes)),
+                    ("maxBytes".into(), json!(max_bytes)),
+                    ("retryable".into(), json!(false)),
+                ]),
+            ));
+        };
+        batches.push((payload, count));
+        offset += count;
+    }
+    Ok(batches)
+}
+
+fn encode_request_envelope(requests: &[EvaluationRequest]) -> Result<String, CelBridgeError> {
+    let variable_objects = requests
+        .iter()
+        .map(|request| {
+            request.variables.as_object().ok_or_else(|| {
+                CelBridgeError::new("invalid_request", "request variables must be an object")
+            })
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    let mut shared = variable_objects
+        .first()
+        .cloned()
+        .cloned()
+        .unwrap_or_default();
+    shared.retain(|key, value| {
+        variable_objects
+            .iter()
+            .skip(1)
+            .all(|variables| variables.get(key) == Some(value))
+    });
+    let encoded_requests = requests
+        .iter()
+        .zip(variable_objects)
+        .map(|(request, variables)| {
+            let mut value = request_json(request);
+            let unique = variables
+                .iter()
+                .filter(|(key, _)| !shared.contains_key(*key))
+                .map(|(key, value)| (key.clone(), value.clone()))
+                .collect();
+            value
+                .as_object_mut()
+                .expect("request_json returns an object")
+                .insert("variables".into(), Value::Object(unique));
+            value
+        })
+        .collect::<Vec<_>>();
+    encode_json(&json!({
+        "sharedVariables": shared,
+        "requests": encoded_requests,
+    }))
 }
 
 fn request_json(request: &EvaluationRequest) -> Value {
@@ -368,7 +514,18 @@ fn error_from_response(response: &Value) -> CelBridgeError {
         .into_iter()
         .filter_map(|issue| serde_json::from_value::<CelIssue>(issue).ok())
         .collect();
-    CelBridgeError::with_issues(code, message, issues)
+    let details = error["details"]
+        .as_object()
+        .map(|items| {
+            items
+                .iter()
+                .map(|(key, value)| (key.clone(), value.clone()))
+                .collect()
+        })
+        .unwrap_or_default();
+    let mut result = CelBridgeError::with_issues(code, message, issues);
+    result.details = details;
+    result
 }
 
 fn decode_batch_item(item: &Value) -> Result<Result<CelValue, CelBridgeError>, CelBridgeError> {
@@ -485,4 +642,33 @@ fn decode_info(value: &Value) -> Result<CelRuntimeInfo, CelBridgeError> {
         profiles,
         limits,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn request_batches_hoist_generic_values_and_split_by_count() {
+        let requests = (0..5)
+            .map(|index| EvaluationRequest {
+                id: index.to_string(),
+                source: Some(format!("value == {index}")),
+                program_id: None,
+                variables: json!({"value": index, "context": {"region": "north"}}),
+                expected_result_type: None,
+            })
+            .collect::<Vec<_>>();
+        let batches = encode_request_batches(&requests, 2, 4096, 4096).unwrap();
+        assert_eq!(
+            batches.iter().map(|(_, count)| *count).collect::<Vec<_>>(),
+            [2, 2, 1]
+        );
+        let first: Value = serde_json::from_str(&batches[0].0).unwrap();
+        assert_eq!(
+            first["sharedVariables"],
+            json!({"context": {"region": "north"}})
+        );
+        assert_eq!(first["requests"][0]["variables"], json!({"value": 0}));
+    }
 }

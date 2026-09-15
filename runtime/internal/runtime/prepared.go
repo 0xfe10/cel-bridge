@@ -184,6 +184,18 @@ func (r *Runtime) evaluatePreparedProgram(programID, variablesJSON string, extra
 	if err != nil {
 		return variableError(err, len(variablesJSON), r.limits.MaxVariablesBytes)
 	}
+	return evaluatePreparedVariables(r, prepared, variables, extraExpected)
+}
+
+func (r *Runtime) evaluatePreparedProgramVariables(programID string, variables map[string]any, extraExpected *environment.TypeSpec) protocol.Response {
+	prepared, ok := r.prepared.get(programID)
+	if !ok {
+		return protocol.Failure("program_not_found", "prepared program was not found")
+	}
+	return evaluatePreparedVariables(r, prepared, variables, extraExpected)
+}
+
+func evaluatePreparedVariables(r *Runtime, prepared *preparedProgram, variables map[string]any, extraExpected *environment.TypeSpec) protocol.Response {
 	expected := prepared.expected
 	if extraExpected != nil {
 		expected = extraExpected

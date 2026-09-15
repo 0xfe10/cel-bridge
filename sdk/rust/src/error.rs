@@ -1,4 +1,6 @@
 use crate::wire::CelIssue;
+use serde_json::Value;
+use std::collections::BTreeMap;
 use std::error::Error;
 use std::fmt;
 
@@ -7,6 +9,7 @@ pub struct CelBridgeError {
     pub code: String,
     pub message: String,
     pub issues: Vec<CelIssue>,
+    pub details: BTreeMap<String, Value>,
 }
 
 impl CelBridgeError {
@@ -15,6 +18,7 @@ impl CelBridgeError {
             code: code.into(),
             message: message.into(),
             issues: Vec::new(),
+            details: BTreeMap::new(),
         }
     }
 
@@ -27,6 +31,20 @@ impl CelBridgeError {
             code: code.into(),
             message: message.into(),
             issues,
+            details: BTreeMap::new(),
+        }
+    }
+
+    pub(crate) fn with_details(
+        code: impl Into<String>,
+        message: impl Into<String>,
+        details: BTreeMap<String, Value>,
+    ) -> Self {
+        Self {
+            code: code.into(),
+            message: message.into(),
+            issues: Vec::new(),
+            details,
         }
     }
 }
