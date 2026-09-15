@@ -64,7 +64,7 @@ final class NativeWorkerClient {
     return _started ??= _start();
   }
 
-  Future<void> closeForTesting() async {
+  Future<void> close() async {
     final pending = Map<int, Completer<String>>.from(_pending);
     _reset();
     for (final completer in pending.values) {

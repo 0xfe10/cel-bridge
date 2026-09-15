@@ -16,9 +16,11 @@ Future<String> invokeNative(
   );
 }
 
-Future<void> closeNativeWorkerForTesting() {
-  return NativeWorkerClient.instance.closeForTesting();
+Future<void> closeNativeWorker() {
+  return NativeWorkerClient.instance.close();
 }
+
+Future<void> closeNativeWorkerForTesting() => closeNativeWorker();
 
 int nativeWorkerSpawnCountForTesting() {
   return NativeWorkerClient.instance.spawnCount;

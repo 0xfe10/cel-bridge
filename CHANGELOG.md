@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.3
+
+- Close the native worker isolate when a Dart runtime is disposed so short-lived
+  consumers terminate cleanly.
+- Make release consumers dispose their runtime after smoke validation.
+
 ## 0.7.2
 
 - Commit Flutter 3.47's analyzer exclusions so package dry-runs keep a clean Git state.

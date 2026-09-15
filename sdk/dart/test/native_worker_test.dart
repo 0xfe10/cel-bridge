@@ -51,4 +51,21 @@ void main() {
     expect((value as CelBoolValue).value, isTrue);
     expect(nativeWorkerSpawnCountForTesting(), before + 1);
   });
+
+  test('dispose shuts down the worker before reinitialization', () async {
+    final runtime = await CelRuntime.initialize();
+    final before = nativeWorkerSpawnCountForTesting();
+
+    await runtime.dispose();
+    final replacement = await CelRuntime.initialize();
+    addTearDown(replacement.dispose);
+    final value = await replacement.evaluate(
+      environment: _environment,
+      source: 'age >= 18',
+      variables: {'age': 20},
+    );
+
+    expect((value as CelBoolValue).value, isTrue);
+    expect(nativeWorkerSpawnCountForTesting(), before + 1);
+  });
 }

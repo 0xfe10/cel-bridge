@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.3
+
+- Align the package version with the Dart native-worker lifecycle fix release.
+
 ## 0.7.2
 
 - Align the package version with the corrected release validation run.

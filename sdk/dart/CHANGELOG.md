@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.3
+
+- Make `CelRuntime.dispose()` terminate the native worker isolate.
+
 ## 0.7.2
 
 - Keep package publication checks clean with current Flutter tooling.

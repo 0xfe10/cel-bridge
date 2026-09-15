@@ -213,7 +213,11 @@ final class _FlutterNativeBackend implements CelBackend {
   }
 
   @override
-  Future<String> close() => _invoke('close');
+  Future<String> close() async {
+    final response = await _invoke('close');
+    await closeNativeWorker();
+    return response;
+  }
 
   @override
   Future<String> create([String optionsJson = '']) {
