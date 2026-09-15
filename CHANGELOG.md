@@ -1,9 +1,10 @@
 # Changelog
 
-## 0.6.0
+## 0.6.1
 
 - Allow callers to override prepared-program, compiled-program, and batch
   capacities independently from the selected safety profile.
+- Make Dart batch validation follow the effective runtime batch capacity.
 - Report the effective configured limits and configurable-limit capability in
   runtime metadata.
 

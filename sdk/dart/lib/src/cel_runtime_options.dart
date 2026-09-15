@@ -1,18 +1,18 @@
 import 'cel_runtime_limits.dart';
 
-const packageVersion = '0.6.0';
+const packageVersion = '0.6.1';
 const wireProtocolVersion = 1;
 const _defaultWasmIntegrity =
-    'sha256-29meuWQUmZekwVG34JiTftC/Ode2a7sP63syXSlhMaM=';
+    'sha256-v3cf98egCmq8diwzto80c6rBHHimZGHaDnKDVMavwrU=';
 const _defaultWasmExecIntegrity =
     'sha256-DJSfSZb5qJaY5LXFht4yJJw7abe6rbZNIgBzzASsuhQ=';
 
 final class CelRuntimeOptions {
   const CelRuntimeOptions({
     this.wasmUrl =
-        'https://github.com/0xfe10/cel-bridge/releases/download/v0.6.0/cel_bridge.wasm',
+        'https://github.com/0xfe10/cel-bridge/releases/download/v0.6.1/cel_bridge.wasm',
     this.wasmExecUrl =
-        'https://github.com/0xfe10/cel-bridge/releases/download/v0.6.0/wasm_exec.js',
+        'https://github.com/0xfe10/cel-bridge/releases/download/v0.6.1/wasm_exec.js',
     this.wasmIntegrity = _defaultWasmIntegrity,
     this.wasmExecIntegrity = _defaultWasmExecIntegrity,
     this.profile,

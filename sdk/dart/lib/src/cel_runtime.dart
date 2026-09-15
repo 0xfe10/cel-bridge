@@ -10,7 +10,7 @@ import 'runtime_info.dart';
 import 'wire/decoder.dart';
 import 'wire/encoder.dart';
 
-const maxBatchExpressions = 256;
+const defaultMaxBatchExpressions = 256;
 
 final class CelRuntime {
   CelRuntime._(this._backend, this.info);
@@ -129,6 +129,7 @@ final class CelRuntime {
     required Map<String, Object?> variables,
   }) async {
     _ensureOpen();
+    final maxBatchExpressions = _maxBatchExpressions;
     if (sources.length > maxBatchExpressions) {
       throw CelBridgeException(
         code: 'invalid_request',
@@ -165,7 +166,7 @@ final class CelRuntime {
     int? deadlineMs,
   }) async {
     _ensureOpen();
-    _validateRequests(requests);
+    _validateRequests(requests, _maxBatchExpressions);
     if (requests.isEmpty) {
       return const [];
     }
@@ -283,9 +284,19 @@ final class CelRuntime {
       );
     }
   }
+
+  int get _maxBatchExpressions {
+    final configured = info.limits['maxBatchSize'];
+    return configured != null && configured > 0
+        ? configured
+        : defaultMaxBatchExpressions;
+  }
 }
 
-void _validateRequests(List<CelEvaluationRequest> requests) {
+void _validateRequests(
+  List<CelEvaluationRequest> requests,
+  int maxBatchExpressions,
+) {
   if (requests.length > maxBatchExpressions) {
     throw CelBridgeException(
       code: 'invalid_request',

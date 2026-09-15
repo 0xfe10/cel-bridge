@@ -8,7 +8,7 @@ void main() {
         profile: 'safe',
         limits: CelRuntimeLimits(
           maxCompiledPrograms: 256,
-          maxBatchExpressions: 64,
+          maxBatchExpressions: 300,
           maxPreparedPrograms: 128,
         ),
       ),
@@ -16,8 +16,15 @@ void main() {
     addTearDown(runtime.dispose);
 
     expect(runtime.info.limits['maxCompiledPrograms'], 256);
-    expect(runtime.info.limits['maxBatchSize'], 64);
+    expect(runtime.info.limits['maxBatchSize'], 300);
     expect(runtime.info.limits['maxPreparedPrograms'], 128);
     expect(runtime.info.features['configurableLimits'], isTrue);
+
+    final results = await runtime.evaluateMany(
+      environment: const {'schemaVersion': 1, 'variables': <String, Object?>{}},
+      sources: List.filled(257, 'true'),
+      variables: const {},
+    );
+    expect(results, hasLength(257));
   });
 }

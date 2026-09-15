@@ -1,9 +1,11 @@
 # Changelog
 
-## 0.6.0
+## 0.6.1
 
 - Add `CelRuntimeLimits` overrides for compiled programs, prepared programs,
   and per-request batch size.
+- Validate batches against the effective runtime limit instead of a fixed SDK
+  constant.
 
 ## 0.5.1
 
