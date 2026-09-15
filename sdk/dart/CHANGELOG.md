@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.2
+
+- Keep package publication checks clean with current Flutter tooling.
+
 ## 0.7.1
 
 - Publish runtime artifacts with matching Web integrity metadata.

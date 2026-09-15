@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.2
+
+- Commit Flutter 3.47's analyzer exclusions so package dry-runs keep a clean Git state.
+
 ## 0.7.1
 
 - Rebuild release artifacts with the pinned Go toolchain and matching Web integrity metadata.

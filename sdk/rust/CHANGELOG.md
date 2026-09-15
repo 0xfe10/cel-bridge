@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.2
+
+- Align the package version with the corrected release validation run.
+
 ## 0.7.1
 
 - Publish runtime artifacts built from the matching release source.
